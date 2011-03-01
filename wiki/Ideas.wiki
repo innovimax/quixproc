@@ -1,0 +1,7 @@
+#summary Provide ideas for the GSoC
+
+= Ideas =
+
+  * implements a converter from [http://cocoon.apache.org/ Cocoon] Pipeline to XProc
+  * implements a converter from [http://www.orbeon.com/orbeon/doc/reference-xpl-pipelines Orbeon XPL] Pipeline to XProc
+  * implements missing steps of QuiXProc in streaming and parallel processing http://www.w3.org/TR/xproc/#std-optional
