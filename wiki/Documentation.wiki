@@ -1,0 +1,16 @@
+#summary One-sentence summary of this page.
+
+= Introduction =
+
+This page is the documentation page of QuiXProc
+
+= Details =
+
+== Command line Options ==
+  * `-rI` / `--run-it` : to execute the pipeline in Streaming if possible and in DOM if not
+  * `-rS`/ `--stream-all`: to execute the pipeline in Streaming only. If not possible it will fail
+  * `-rD`/ `--dom-all`: to execute the pipeline in DOM only (ignore the streaming)
+  * `-tN`/ `--trace-no")) continue;
+      if (arg.startsWith("-tW") || arg.startsWith("--trace-wait")) continue;          
+      if (arg.startsWith("-tA") || arg.startsWith("--trace-all")) continue;      
+      if (arg.startsWith("-D") || arg.startsWith("--debug")) continue;  
