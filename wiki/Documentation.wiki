@@ -1,4 +1,4 @@
-#summary One-sentence summary of this page.
+#summary Documentation of QuiXProc
 
 = Introduction =
 
@@ -13,4 +13,18 @@ This page is the documentation page of QuiXProc
   * `-tN` / `--trace-no`: to desactivate the trace
   * `-tW` / `--trace-wait`: to active only the trace when the processor is waiting
   * `-tA` / `--trace-all`: to active full trace
-  * `-D`/ `--debug`: activate the debug mode
+  * `-D` / `--debug`: activate the debug mode
+  * `-a` /  `--schema-aware`: Turn on schema-aware processing
+  * `-b` / `--binding prefix=uri`: Specify namespace binding
+  *  -c, --config configfile              Specify a particular configuration file
+  *  -d, --data-input port=uri            Bind the specified input port to data
+  *  -D, --debug               	       Turn on debugging
+  *  -E, --entity-resolver className      Specify a resolver class for URI resolution
+  *  -G, --log-style logstyle             Specify the default style for p:log output
+  *  -i, --input port=uri      	       Bind the specified input port
+  *  -l, --library library.xpl            Load the specified library
+  *  -o, --output port=uri                Bind the specified output port
+  *  -p, --with-param [port@]param=value  Specify a parameter
+  *  -S, --safe-mode                      Request "safe" execution
+  * -s, --step-name stepname             Run the step named 'stepname'
+  *  -U, --uri-resolver className         Specify a resolver class for URI resolution
