@@ -23,7 +23,7 @@ package innovimax.quixproc.codex.util;
 
 import innovimax.quixproc.codex.io.AggregatePipe;
 import innovimax.quixproc.datamodel.QuixEvent;
-import innovimax.quixproc.datamodel.Stream;
+import innovimax.quixproc.datamodel.IStream;
 import innovimax.quixproc.util.SpyHandler;
 
 import java.util.List;
@@ -36,7 +36,7 @@ public class EventReader {
     private StepContext stepContext = null;      
     private List<ReadablePipe> pipes = null;                
     private final SpyHandler spy;       
-    private Stream<QuixEvent> stream = null;
+    private IStream<QuixEvent> stream = null;
     private int index = 0;
     private boolean closed = false;    
     private boolean startSequence = false;    

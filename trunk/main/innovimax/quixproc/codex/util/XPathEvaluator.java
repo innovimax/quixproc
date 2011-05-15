@@ -23,7 +23,7 @@ package innovimax.quixproc.codex.util;
 
 import innovimax.quixproc.datamodel.QuixValue;
 import innovimax.quixproc.util.EvalException;
-import innovimax.quixproc.util.EvalProcess;
+import innovimax.quixproc.util.IEvalProcess;
 import innovimax.quixproc.util.QuiXPathEvaluator;
 
 import java.util.Map;
@@ -34,7 +34,7 @@ import com.xmlcalabash.core.XProcException;
 
 public class XPathEvaluator {
     private EventReader reader = null;     
-    private EvalProcess process = null;        
+    private IEvalProcess process = null;        
     
     public XPathEvaluator(EventReader reader, String xpath, Map<QName,QuixValue> variables, Map<String,String> namespaces) { 
         this.reader = reader;     

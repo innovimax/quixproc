@@ -2,7 +2,7 @@ package innovimax.quixproc.codex.util.open;
 
 import innovimax.quixproc.datamodel.MatchEvent;
 import innovimax.quixproc.datamodel.QuixEvent;
-import innovimax.quixproc.datamodel.Stream;
+import innovimax.quixproc.datamodel.IStream;
 
 import com.quixpath.exceptions.QuiXPathException;
 import com.quixpath.exceptions.UnsupportedQueryException;
@@ -22,7 +22,7 @@ public class QuiXPathImpl implements IQuiXPath {
   }
 
   @Override
-  public Stream<MatchEvent> update(IQuiXPathExpression expression, QuixEvent event) throws QuiXPathException {
+  public IStream<MatchEvent> update(IQuiXPathExpression expression, QuixEvent event) throws QuiXPathException {
     return this.proxy.update(expression, event);
   }
 

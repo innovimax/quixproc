@@ -24,7 +24,7 @@ import com.quixpath.interfaces.IQuiXPath;
 import com.quixpath.interfaces.IQuiXPathExpression;
 
 import innovimax.quixproc.datamodel.MatchEvent;
-import innovimax.quixproc.datamodel.Stream;
+import innovimax.quixproc.datamodel.IStream;
 import innovimax.quixproc.util.MatchException;
 import innovimax.quixproc.util.MatchHandler;
 import innovimax.quixproc.util.MatchProcess;
@@ -54,7 +54,7 @@ public class XPathMatcher implements Runnable {
       @Override
       public void pushEvent(MatchEvent event) throws MatchException {
         try {
-          Stream<MatchEvent> stream = this.expression.update(event.getEvent());
+          IStream<MatchEvent> stream = this.expression.update(event.getEvent());
           if (stream != null) {
             while(stream.hasNext()) {
               this.queue.push(stream.next());

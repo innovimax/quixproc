@@ -21,7 +21,7 @@ package innovimax.quixproc.util;
 
 import innovimax.quixproc.datamodel.*;
 
-public interface EvalProcess 
+public interface IEvalProcess 
 {    
   public void pushEvent(QuixEvent event) throws EvalException;
   public boolean hasValue();

@@ -24,7 +24,7 @@ import java.util.Map;
 import javax.xml.namespace.QName;
 import innovimax.quixproc.datamodel.*;
 
-public class QuiXPathEvaluator implements EvalProcess {   
+public class QuiXPathEvaluator implements IEvalProcess {   
   /*
    *  properties
    */ 

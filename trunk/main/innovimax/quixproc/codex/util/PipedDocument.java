@@ -24,9 +24,9 @@ package innovimax.quixproc.codex.util;
 import innovimax.quixproc.datamodel.DOMConverter;
 import innovimax.quixproc.datamodel.EventConverter;
 import innovimax.quixproc.datamodel.QuixEvent;
-import innovimax.quixproc.datamodel.Stream;
-import innovimax.quixproc.datamodel.shared.Queue;
-import innovimax.quixproc.datamodel.shared.SimpleQueue;
+import innovimax.quixproc.datamodel.IStream;
+import innovimax.quixproc.datamodel.shared.IQueue;
+import innovimax.quixproc.datamodel.shared.ISimpleQueue;
 import innovimax.quixproc.datamodel.shared.SmartAppendQueue;
 
 import java.net.URI;
@@ -36,7 +36,7 @@ import net.sf.saxon.s9api.XdmNode;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.util.S9apiUtils;
 
-public class PipedDocument implements SimpleQueue<QuixEvent>{
+public class PipedDocument implements ISimpleQueue<QuixEvent>{
   private static int idCounter = 0;
   //
   private final XProcRuntime runtime;
@@ -46,7 +46,7 @@ public class PipedDocument implements SimpleQueue<QuixEvent>{
   private URI baseURI = null;
   private XdmNode node = null;
   private boolean closed = false;
-  private Queue<QuixEvent> events = null;
+  private IQueue<QuixEvent> events = null;
 //  private QuixStream domNodeReader = null;
 
   
@@ -69,9 +69,9 @@ public class PipedDocument implements SimpleQueue<QuixEvent>{
 //    this.domNodeReader = events.registerReader();
   }
 
-  private final static Queue<QuixEvent> newQuixEventQueue(int readerCount) {
+  private final static IQueue<QuixEvent> newQuixEventQueue(int readerCount) {
     // TODO moz V1 : put the one who works less good
-    Queue<QuixEvent> qeq = new SmartAppendQueue<QuixEvent>();
+    IQueue<QuixEvent> qeq = new SmartAppendQueue<QuixEvent>();
     qeq.setReaderCount(readerCount);
     return qeq;
   }
@@ -120,7 +120,7 @@ public class PipedDocument implements SimpleQueue<QuixEvent>{
     return (events != null);
   }
 
-  public synchronized Stream<QuixEvent> registerReader() {
+  public synchronized IStream<QuixEvent> registerReader() {
     if (events == null) { return nodeToStream(); }
     return events.registerReader();
   }
@@ -149,9 +149,9 @@ public class PipedDocument implements SimpleQueue<QuixEvent>{
     return converter.exec();
   }
 
-  private Stream<QuixEvent> nodeToStream() {
+  private IStream<QuixEvent> nodeToStream() {
     events = newQuixEventQueue(readerCount);
-    Stream<QuixEvent> result = events.registerReader();
+    IStream<QuixEvent> result = events.registerReader();
     runtime.getTracer().debug(null, null, -1, null, this, "    PDOC > RUN CONVERT-EVT THREAD");
     final PipedDocument doc = this;
     EventConverter converter = new EventConverter(doc, doc.getNode()) {

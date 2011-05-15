@@ -37,7 +37,7 @@ public class MatchQueue extends AbstractQueue
     queue.add(match); 
   }  
   
-  public void push(Stream<MatchEvent> stream) {
+  public void push(IStream<MatchEvent> stream) {
     // TODO
   }
   
