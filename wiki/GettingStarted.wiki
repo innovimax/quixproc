@@ -27,7 +27,7 @@ or
 {{{
 java innovimax.quixproc.code.drivers.open.QuiXProcC add-attribute.xpl
 }}}
-And you should get the following result in the file`root-with-attribute.xml`:
+And you should get the following result in the file `root-with-attribute.xml`:
 {{{
 <root foo="bar"/>
 }}}
