@@ -20,12 +20,11 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 package innovimax.quixproc.codex.drivers.open;
 
 import innovimax.quixproc.codex.util.QConfig;
+import innovimax.quixproc.codex.util.open.QuiXPathImpl;
 import innovimax.quixproc.codex.util.open.Spy;
 import innovimax.quixproc.codex.util.open.Tracer;
 import innovimax.quixproc.codex.util.open.Waiter;
 
-import com.quixpath.QuiXPathFactory;
-import com.quixpath.exceptions.QuiXPathException;
 import com.quixpath.interfaces.IQuiXPath;
 import com.xmlcalabash.drivers.RunTestReport;
 
@@ -41,14 +40,7 @@ public class RunTestB
       Tracer tracer = new Tracer();
       Waiter waiter = new Waiter();
       Spy spy = new Spy();
-      IQuiXPath quixpath = null;
-      QuiXPathFactory factory;
-      try {
-        factory = QuiXPathFactory.newInstance();
-        quixpath = factory.newQuiXPath();
-      } catch (QuiXPathException e) {
-        e.printStackTrace();
-      }      
+      IQuiXPath quixpath = new QuiXPathImpl();       
       QConfig config = new QConfig();
       config.setTracer(tracer);
       config.setWaiter(waiter);
