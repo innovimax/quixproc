@@ -15,7 +15,7 @@ Suppose that you have the following very simple XPL `add-attribute.xpl`:
       </p:inline>
     </p:input>
   </p:identity>
-  <p:add-attribute match="title" attribute-name="foo" attribute-value="bar"/>
+  <p:add-attribute match="root" attribute-name="foo" attribute-value="bar"/>
   <p:store href="root-with-attribute.xml"/>
 </p:declare-step>
 }}}
