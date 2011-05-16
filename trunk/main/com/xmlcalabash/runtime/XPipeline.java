@@ -28,12 +28,10 @@ import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.model.DeclareStep;
-import com.xmlcalabash.model.Option;
 import com.xmlcalabash.model.Output;
 import com.xmlcalabash.model.RuntimeValue;
 import com.xmlcalabash.model.Serialization;
 import com.xmlcalabash.model.Step;
-import com.xmlcalabash.model.Variable;
 import com.xmlcalabash.util.TreeWriter;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
@@ -43,14 +41,11 @@ import java.util.*;
 import java.util.List; // Innovimax: new import
 import java.util.ArrayList; // Innovimax: new import
 
-import innovimax.quixproc.codex.util.Waiting;
-
 import innovimax.quixproc.codex.util.DocumentCollector;
 import innovimax.quixproc.codex.util.ParameterCollector;
 import innovimax.quixproc.codex.util.OptionsCalculator;
 import innovimax.quixproc.codex.util.VariablesCalculator;
 import innovimax.quixproc.codex.util.ErrorHandler;
-import innovimax.quixproc.util.SuicideException;
 
 public class XPipeline extends XCompoundStep {
     private static final QName c_param_set = new QName("c", XProcConstants.NS_XPROC_STEP, "param-set");
