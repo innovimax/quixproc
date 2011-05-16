@@ -24,7 +24,7 @@ This page is the documentation page of QuiXProc
   * `-i` / `--input port=uri`:      	       Bind the specified input port
   * `-l` / `--library library.xpl`:            Load the specified library
   * `-o` / `--output port=uri`:                Bind the specified output port
-  * `-p`/ `--with-param [port@]param=value`:  Specify a parameter
+  * `-p` / `--with-param [port@]param=value`:  Specify a parameter
   * `-S` / `--safe-mode`:                      Request "safe" execution
   * `-s` / `--step-name stepname`:             Run the step named 'stepname'
-  *  `-U`/ `--uri-resolver className`:         Specify a resolver class for URI resolution
+  *  `-U` / `--uri-resolver className`:         Specify a resolver class for URI resolution
