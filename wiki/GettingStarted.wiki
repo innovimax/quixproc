@@ -21,11 +21,11 @@ Suppose that you have the following very simple XPL `add-attribute.xpl`:
 }}}
 Then you can launch the example with 
 {{{
-java innovimax.quixproc.code.drivers.open.QuiXProcB add-attribute.xpl
+java innovimax.quixproc.codex.drivers.open.QuiXProcB add-attribute.xpl
 }}}
 or
 {{{
-java innovimax.quixproc.code.drivers.open.QuiXProcC add-attribute.xpl
+java innovimax.quixproc.codex.drivers.open.QuiXProcC add-attribute.xpl
 }}}
 And you should get the following result in the file `root-with-attribute.xml`:
 {{{
