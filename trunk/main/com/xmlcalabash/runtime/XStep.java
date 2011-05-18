@@ -326,9 +326,14 @@ public abstract class XStep implements XProcRunnable
     protected long threadId = 0; // Innovimax: new property        
     protected StepContext stepContext = new StepContext(); // Innovimax: new property    
     
+    // Innovimax: new constructor
+    public XStep() {
+      // nop
+    }        
+    
     // Innovimax: new function
     public void run() {      
-        try {
+        try {            
             threadId = Thread.currentThread().getId();                   
             step.setRunStep(stepContext.curChannel, this);
             runtime.getTracer().debug(this,null,-1,null,null,"  STEP > START THREAD");          

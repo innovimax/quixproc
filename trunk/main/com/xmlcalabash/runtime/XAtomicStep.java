@@ -338,7 +338,7 @@ public class XAtomicStep extends XStep {
         XProcStep xstep = null;
 
         try {        
-            Constructor constructor = Class.forName(className).getConstructor(XProcRuntime.class, this.getClass());                        
+            Constructor constructor = Class.forName(className).getConstructor(XProcRuntime.class, this.getClass());                                    
             xstep = (XProcStep) constructor.newInstance(runtime,this);                        
         } catch (NoSuchMethodException nsme) {
             throw new UnsupportedOperationException("No such method: " + className, nsme);
@@ -436,7 +436,7 @@ public class XAtomicStep extends XStep {
         }*/       
         OptionsCalculator calculator = new OptionsCalculator(runtime,this,xstep,step,inScopeOptions);                      
         calculator.exec(); 
-                
+                        
         xstep.reset();
         computeParameters(xstep);
 
@@ -898,6 +898,11 @@ public class XAtomicStep extends XStep {
     //*************************************************************************             
     
     private Map<ComputableValue, ReadablePipe> varReaders = new HashMap<ComputableValue, ReadablePipe>(); // Innovimax: new property
+    
+    // Innovimax: new constructor
+    public XAtomicStep() {
+      // nop
+    }      
     
     // Innovimax: new function
     public void setReaderCount() { 

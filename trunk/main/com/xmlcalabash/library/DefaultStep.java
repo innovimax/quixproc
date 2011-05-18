@@ -71,12 +71,15 @@ public class DefaultStep implements XProcStep {
     //private String logger = null;
 
     // Innovimax: modified constructor
-    public DefaultStep(XProcRuntime runtime, XAtomicStep step) {
+    public DefaultStep(XProcRuntime runtime, XAtomicStep step) {      
         this.runtime = runtime;
-        this.step = step;
-        // Innovimax: set step context
-        this.stepContext = step.getContext();        
-        options = new Hashtable<QName,RuntimeValue> ();        
+        this.step = step;     
+        // Innovimax: set step context           
+        //options = new Hashtable<QName,RuntimeValue> ();        
+        if (runtime.getConfiguration() != null) {
+          this.stepContext = step.getContext();        
+          options = new Hashtable<QName,RuntimeValue> ();        
+        }        
     }
 
     public void setInput(String port, ReadablePipe pipe) {
