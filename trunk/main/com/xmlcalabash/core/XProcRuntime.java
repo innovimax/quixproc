@@ -791,6 +791,11 @@ public class XProcRuntime {
             
     private QConfig qconfig = null;  // Innovimax: new property      
     
+    // Innovimax: new constructor
+    public XProcRuntime() {
+      // nop
+    }    
+    
     // Innovimax: new function
     public void setQConfig(QConfig qconfig) {     
         this.qconfig = qconfig;           
