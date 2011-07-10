@@ -73,17 +73,21 @@ public class XPathMatcher implements Runnable {
     
     public XPathMatcher(IQuiXPath quixpath, EventReader reader, MatchHandler callback, String xpath, boolean multiplex) {          
         this.reader = reader;
-        this.callback = callback;
-        process = new QuiXPathMatcher(quixpath, xpath,multiplex);
+        this.callback = callback;                
+        if (!xpath.startsWith("/")) {
+          xpath = "//"+xpath;  // DEBUG : A MODIFIER
+        }
+        System.err.println(">>> XPathMatcher.XPATH="+xpath);
+        process = new QuiXPathMatcher(quixpath, xpath,multiplex);        
     }    
    
     public void run() {            
-        try {                                     
-            callback.startProcess();      
-            while (reader.hasEvent()) {
-              process.pushEvent(new MatchEvent(reader.nextEvent()));
-              while (process.hasEvent()) {                
-                callback.processEvent(process.pullEvent());
+        try {                                                
+            callback.startProcess();                  
+            while (reader.hasEvent()) {              
+              process.pushEvent(new MatchEvent(reader.nextEvent()));              
+              while (process.hasEvent()) {                  
+                callback.processEvent(process.pullEvent());                
                 Thread.yield();
               }              
             }    
