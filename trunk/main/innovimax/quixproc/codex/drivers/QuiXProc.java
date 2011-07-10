@@ -26,11 +26,11 @@ import innovimax.quixproc.util.ExitException;
 import java.io.File;
 import java.util.Vector;
 
-public abstract class Quixproc
+public abstract class QuiXProc
 {    
   private boolean called = false;
   
-  public Quixproc(boolean called)          
+  public QuiXProc(boolean called)          
   {
     this.called = called;  
   }     

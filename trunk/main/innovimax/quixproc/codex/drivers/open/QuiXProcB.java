@@ -19,7 +19,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package innovimax.quixproc.codex.drivers.open;
 
-import innovimax.quixproc.codex.drivers.Quixproc;
+import innovimax.quixproc.codex.drivers.QuiXProc;
 import innovimax.quixproc.codex.util.QConfig;
 import innovimax.quixproc.codex.util.Spying;
 import innovimax.quixproc.codex.util.open.QuiXPathImpl;
@@ -31,9 +31,9 @@ import java.io.File;
 
 import com.quixpath.interfaces.IQuiXPath;
 
-public class QuixprocB extends Quixproc
+public class QuiXProcB extends QuiXProc
 {  
-  public QuixprocB(boolean called)          
+  public QuiXProcB(boolean called)          
   {
     super(called);
   } 
@@ -48,7 +48,7 @@ public class QuixprocB extends Quixproc
   }    
 
   private static Spying exec(String[] args, boolean called, File baseDir) {    
-    QuixprocB driver = new QuixprocB(called); 
+    QuiXProcB driver = new QuiXProcB(called); 
     Tracer tracer = new Tracer();
     Waiter waiter = new Waiter();
     Spy spy = new Spy();
