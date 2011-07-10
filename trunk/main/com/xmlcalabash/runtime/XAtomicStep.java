@@ -455,7 +455,10 @@ public class XAtomicStep extends XStep {
         // Innovimax: execute step
         //xstep.run();
         xstep.setStreamed(isStreamed());              
-        xstep.gorun();    
+        xstep.gorun();           
+        while (xstep.isRunning()) {
+          Thread.yield();  
+        } 
         
         // Innovimax: statistics        
         long mem = Runtime.getRuntime().totalMemory() - startTotalMem + startedMemory - Runtime.getRuntime().freeMemory();
@@ -485,8 +488,8 @@ public class XAtomicStep extends XStep {
         }
 
         for (String port : outputs.keySet()) {
-            WritablePipe wpipe = outputs.get(port);
-            wpipe.close(stepContext); // Indicate we're done
+            WritablePipe wpipe = outputs.get(port);            
+            wpipe.close(stepContext); // Indicate we're done            
         }
 
         // Innovimax: XProcData desactivated

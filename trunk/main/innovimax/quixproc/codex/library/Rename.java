@@ -89,13 +89,14 @@ public class Rename extends DefaultStep implements MatchHandler {
             newNS = qname.getNamespaceURI();          
         }
                 
-        try {                        
+        try {             
             out = result.newPipedDocument(stepContext.curChannel);             
             EventReader evr = new EventReader(source.readAsStream(stepContext), null);                 
             XPathMatcher xmatch = new XPathMatcher(runtime.getQConfig().getQuiXPath(), evr, this, match.getString(), false);
             Thread t = new Thread(xmatch);            
-            runtime.getTracer().debug(step,null,-1,source,null,"  RENAME > RUN MATCH THREAD");        
+            runtime.getTracer().debug(step,null,-1,source,null,"  RENAME > RUN MATCH THREAD");                    
             t.start();                                           
+            running = true;
         }         
         catch (Exception e) {            
             throw new XProcException(e);      
@@ -115,6 +116,7 @@ public class Rename extends DefaultStep implements MatchHandler {
         if (!out.isClosed()) {                  
             throw new XProcException("Thread concurrent error : unclosed renamed document");                   
         }          
+        running = false;
     }    
 
     public void errorProcess(Exception e) {    
@@ -160,7 +162,15 @@ public class Rename extends DefaultStep implements MatchHandler {
                     }
                     break;
                 case COMMENT :
+                    if (match.isMatched()) {                
+                        throw XProcException.stepError(23);
+                    }
+                    break;
                 case TEXT :
+                    if (match.isMatched()) {
+                        throw XProcException.stepError(23);
+                    }
+                    break;
             }
             //match.clear();
             out.append(event);            

@@ -352,12 +352,18 @@ public class DefaultStep implements XProcStep {
     //*************************************************************************
     //*************************************************************************                 
     
+    protected boolean running = false; // Innovimax: new property
     protected boolean streamed = false; // Innovimax: new property
     protected StepContext stepContext = null; // Innovimax: new property    
     
     // Innovimax: new function (not used : to agree XProcRunnable)
     public void run() {}        
-       
+        
+    // Innovimax: new function
+    public boolean isRunning() {
+      return running;
+    }     
+           
     // Innovimax: new function
     public void setStreamed(boolean streamed) {
       this.streamed = streamed;

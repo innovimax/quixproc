@@ -39,6 +39,7 @@ public interface XProcStep extends XProcRunnable {
     //*************************************************************************
     // INNOVIMAX IMPLEMENTATION
     //*************************************************************************  
-    
+
+    public boolean isRunning();      
     public void setStreamed(boolean streamed);    
 }

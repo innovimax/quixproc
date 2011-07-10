@@ -73,7 +73,7 @@ public class Load extends DefaultStep implements ContentHandler {
         // nop
     }    
 
-    public void gorun() {             
+    public void gorun() {                   
         RuntimeValue href = getOption(_href);                
         baseURI = runtime.getQConfig().getBaseURI(href.getBaseURI()).toASCIIString();  
         boolean validate = getOption(_dtd_validate, false);             
@@ -88,7 +88,8 @@ public class Load extends DefaultStep implements ContentHandler {
             InputSource input = new InputSource(hrefURI.toASCIIString());                                              
             XMLReader reader = XMLReaderFactory.createXMLReader();            
             reader.setContentHandler(this);
-            reader.parse(input);                                        
+            reader.parse(input);  
+            running = true;                                      
             
         } catch (Exception e) {
             e.printStackTrace();
@@ -124,6 +125,7 @@ public class Load extends DefaultStep implements ContentHandler {
         } catch (Exception e) { 
             error(e); 
         }         
+        running = false;        
     }
     
     
