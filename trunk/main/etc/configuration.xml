@@ -263,4 +263,9 @@
 <implementation type="ix:directory-list"
 		class-name="innovimax.quixproc.codex.library.DirectoryList"/>				
 
+<implementation type="ix:identity"
+		class-name="innovimax.quixproc.codex.library.Identity"/>				
+		
+<implementation type="ix:sink"
+		class-name="innovimax.quixproc.codex.library.Sink"/>	
 </xproc-config>
