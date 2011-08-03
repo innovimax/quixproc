@@ -26,8 +26,8 @@ import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.runtime.XStep;
 
 public interface Waiting { 
-    public void setRuntime(XProcRuntime runtime);
-    public void initialize(XStep xstep, int channel, ReadablePipe pipe, PipedDocument doc, String message);
+    public Waiting newInstance(XStep xstep, int channel, ReadablePipe pipe, PipedDocument doc, String message);
+    public void setRuntime(XProcRuntime runtime);    
     public void setExitTimeout(int time);
     public void setWaitTimeout(int time);
     public void check();

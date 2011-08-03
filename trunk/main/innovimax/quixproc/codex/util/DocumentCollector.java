@@ -120,7 +120,9 @@ public class DocumentCollector implements Runnable {
                    }
                }                   
            }           
-           if (closeOut && !cancel) out.close(wContext);                    
+           if (closeOut && !cancel) {              
+              out.close(wContext);                    
+           }
            endProcess();            
            running = false;               
         } catch (RuntimeException e) {

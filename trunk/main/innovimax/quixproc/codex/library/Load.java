@@ -88,8 +88,7 @@ public class Load extends DefaultStep implements ContentHandler {
             InputSource input = new InputSource(hrefURI.toASCIIString());                                              
             XMLReader reader = XMLReaderFactory.createXMLReader();            
             reader.setContentHandler(this);
-            reader.parse(input);  
-            running = true;                                      
+            reader.parse(input);                                     
             
         } catch (Exception e) {
             e.printStackTrace();
@@ -124,8 +123,7 @@ public class Load extends DefaultStep implements ContentHandler {
             out.close();  
         } catch (Exception e) { 
             error(e); 
-        }         
-        running = false;        
+        }                 
     }
     
     

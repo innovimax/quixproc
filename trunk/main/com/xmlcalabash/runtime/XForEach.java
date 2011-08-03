@@ -245,7 +245,7 @@ public class XForEach extends XCompoundStep {
         }        
 
         // collect outputs        
-        runtime.getWaiter().initialize(this,stepContext.curChannel,null,null,"  FOREACH > WAITING NEXT OUTPUT COLLECTING...");         
+        Waiting waiter = runtime.newWaiterInstance(this,stepContext.curChannel,null,null,"  FOREACH > WAITING NEXT OUTPUT COLLECTING...");         
         int index = 0;      
         while (selCollector.isRunning() || index < inCount) {                
             if (index < inCount) {                        
@@ -262,15 +262,15 @@ public class XForEach extends XCompoundStep {
                     }
                 }
             } else {  
-                runtime.getWaiter().check();                  
+                waiter.check();                  
             }
             Thread.yield();                     
         }        
         
         // waiting before close writed pipes
-        runtime.getWaiter().initialize(this,stepContext.curChannel,null,null,"  FOREACH > WAITING END OF COLLECTING..."); 
+        waiter = runtime.newWaiterInstance(this,stepContext.curChannel,null,null,"  FOREACH > WAITING END OF COLLECTING..."); 
         while (inCount > outCount) {
-            runtime.getWaiter().check();                     
+            waiter.check();                     
             Thread.yield();
         }                   
         for (String port : inputs.keySet()) {
@@ -361,7 +361,7 @@ public class XForEach extends XCompoundStep {
         
         private void doRun() {                                           
             int index = 0;
-            runtime.getWaiter().initialize(foreach,stepContext.curChannel,null,null,"    SUBPIPELINE > BEGIN INPUT COLLECTING..."); 
+            Waiting waiter = runtime.newWaiterInstance(foreach,stepContext.curChannel,null,null,"    SUBPIPELINE > BEGIN INPUT COLLECTING..."); 
             int size = channels.size();                 
             while (selCollector.isRunning() || index < size) {                
                 if (index < size) {                    
@@ -390,7 +390,7 @@ public class XForEach extends XCompoundStep {
                         t2.start();                                    
                     } 
                 } else {
-                    runtime.getWaiter().check();
+                    waiter.check();
                 }                                
                 Thread.yield();                  
                 size = channels.size(); 

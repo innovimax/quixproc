@@ -227,11 +227,11 @@ public class XSelect implements ReadablePipe {
         StepContext newContext = documents.checkChannel(stepContext);
         initialize(newContext);
         boolean waiting = true;      
-        runtime.getWaiter().initialize(null,newContext.curChannel,this,null,"    XSEL > WAITING CHANNEL IS CLOSED..."); 
+        Waiting waiter = runtime.newWaiterInstance(null,newContext.curChannel,this,null,"    XSEL > WAITING CHANNEL IS CLOSED..."); 
         while (waiting) {           
             if (c_pos.get(stepContext.curChannel) < documents.size(newContext.curChannel)) return true;                                         
             if (closed(newContext)) return false;                                
-            runtime.getWaiter().check();
+            waiter.check();
             Thread.yield();          
         }        
         return false;      
@@ -265,9 +265,9 @@ public class XSelect implements ReadablePipe {
         PipedDocument doc = null;                
         if (moreDocuments(newContext)) {
             doc = documents.get(newContext.curChannel, c_pos.get(stepContext.curChannel));
-            runtime.getWaiter().initialize(null,newContext.curChannel,this,null,"    XSEL > WAITING FOR DOCUMENT..."); 
+            Waiting waiter = runtime.newWaiterInstance(null,newContext.curChannel,this,null,"    XSEL > WAITING FOR DOCUMENT..."); 
             while (doc==null) {                    
-                runtime.getWaiter().check();
+                waiter.check();
                 Thread.yield();
                 doc = documents.get(newContext.curChannel, c_pos.get(stepContext.curChannel));
             }            

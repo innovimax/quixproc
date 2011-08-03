@@ -129,10 +129,10 @@ public class OptionsCalculator implements Runnable {
                 }
             }
         }              
-        runtime.getWaiter().initialize(astep,channel,null,null,"  STEP > WAITING OPTIONS EVAL..."); 
+        Waiting waiter = runtime.newWaiterInstance(astep,channel,null,null,"  STEP > WAITING OPTIONS EVAL..."); 
         while (counter.getCount() > 0) {
             checkErrors();
-            runtime.getWaiter().check();
+            waiter.check();
             Thread.yield();
         }
         runtime.getTracer().debug(astep,null,-1,null,null,"  STEP > OPTIONS EVAL TERMINATED");                 

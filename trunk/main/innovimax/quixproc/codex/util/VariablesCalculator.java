@@ -87,10 +87,10 @@ public class VariablesCalculator implements Runnable {
                 }
             }
         }                 
-        runtime.getWaiter().initialize(astep,channel,null,null,"  STEP > WAITINGS VARIABLE EVAL..."); 
+        Waiting waiter = runtime.newWaiterInstance(astep,channel,null,null,"  STEP > WAITINGS VARIABLE EVAL..."); 
         while (counter.getCount() > 0) {            
             checkErrors();
-            runtime.getWaiter().check();            
+            waiter.check();            
             Thread.yield();
         }        
         runtime.getTracer().debug(astep,null,-1,null,null,"  STEP > VARIABLES EVAL TERMINATED"); 

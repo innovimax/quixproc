@@ -29,9 +29,15 @@ import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.runtime.XStep;
 
 public class Waiter implements Waiting { 
+  
+    public Waiter() {}  
    
-    public void setRuntime(XProcRuntime runtime) { /* NOP */ }    
-    public void initialize(XStep xstep, int channel, ReadablePipe pipe, PipedDocument doc, String message) { /* NOP */ }
+    public Waiting newInstance(XStep xstep, int channel, ReadablePipe pipe, PipedDocument doc, String message) {  
+        Waiting waiter = new Waiter();
+        return waiter;
+    }           
+    
+    public void setRuntime(XProcRuntime runtime) { /* NOP */ }        
     public void setExitTimeout(int time) { /* NOP */ }
     public void setWaitTimeout(int time) { /* NOP */ }
     public void check() { /* NOP */ }

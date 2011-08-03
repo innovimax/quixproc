@@ -367,9 +367,9 @@ public class XCompoundStep extends XAtomicStep {
         } 
         
         // Innovimax: waiting before close frame     
-        runtime.getWaiter().initialize(this,stepContext.curChannel,null,null,"    COMPOUND > WAITING END OF STEPS...");    
+        Waiting waiter = runtime.newWaiterInstance(this,stepContext.curChannel,null,null,"    COMPOUND > WAITING END OF STEPS...");    
         while (subpipelineRunning() || collectorRunning(outCollectors)) {
-            runtime.getWaiter().check();
+            waiter.check();
             Thread.yield();
         }   
         runtime.getTracer().debug(this,null,-1,null,null,"  COMPOUND > EXIT");                  

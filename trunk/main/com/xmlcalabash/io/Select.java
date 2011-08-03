@@ -145,8 +145,8 @@ public class Select implements ReadablePipe {
 
         PipedDocument doc = null;                
         if (moreDocuments(newContext)) {
-            doc = documents.get(newContext.curChannel, c_pos.get(stepContext.curChannel));
-            c_pos.increment(stepContext.curChannel);
+            doc = documents.get(newContext.curChannel, c_pos.get(newContext.curChannel));
+            c_pos.increment(newContext.curChannel);
             runtime.getTracer().debug(null,newContext,-1,this,doc,"    SELC > READ ");            
         } else {
             runtime.getTracer().debug(null,newContext,-1,this,null,"    SELC > NO MORE DOCUMENT");            

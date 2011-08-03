@@ -29,6 +29,7 @@ import innovimax.quixproc.util.MatchException;
 import innovimax.quixproc.util.MatchHandler;
 import innovimax.quixproc.util.MatchProcess;
 import innovimax.quixproc.util.MatchQueue;
+import innovimax.quixproc.datamodel.QuixEvent;
 
 public class XPathMatcher implements Runnable {
     private EventReader reader = null;
@@ -76,16 +77,16 @@ public class XPathMatcher implements Runnable {
         this.callback = callback;                
         if (!xpath.startsWith("/")) {
           xpath = "//"+xpath;  // DEBUG : A MODIFIER
-        }
+        }        
         System.err.println(">>> XPathMatcher.XPATH="+xpath);
         process = new QuiXPathMatcher(quixpath, xpath,multiplex);        
     }    
    
     public void run() {            
-        try {                                                
+        try {                                       
             callback.startProcess();                  
-            while (reader.hasEvent()) {              
-              process.pushEvent(new MatchEvent(reader.nextEvent()));              
+            while (reader.hasEvent()) {               
+              process.pushEvent(new MatchEvent(reader.nextEvent()));                            
               while (process.hasEvent()) {                  
                 callback.processEvent(process.pullEvent());                
                 Thread.yield();

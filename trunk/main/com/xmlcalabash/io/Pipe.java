@@ -48,14 +48,14 @@ public class Pipe implements ReadablePipe, WritablePipe {
     private Step reader = null;
 
     /** Creates a new instance of Pipe */
-    public Pipe(XProcRuntime xproc) {
+    public Pipe(XProcRuntime xproc) {        
         runtime = xproc;
         documents = new DocumentSequence(xproc);
         documents.addReader();
         id = idCounter++;
     }
 
-    public Pipe(XProcRuntime xproc, DocumentSequence seq) {
+    public Pipe(XProcRuntime xproc, DocumentSequence seq) {        
         runtime = xproc;
         documents = seq;
         seq.addReader();
@@ -97,8 +97,8 @@ public class Pipe implements ReadablePipe, WritablePipe {
     }    
     
     // Innovimax: new function
-    public void resetReader(StepContext stepContext) {         
-        c_pos.reset(stepContext.curChannel);
+    public void resetReader(StepContext stepContext) {                  
+        c_pos.reset(stepContext.curChannel);        
     }     
     
     // Innovimax: new function
@@ -138,22 +138,22 @@ public class Pipe implements ReadablePipe, WritablePipe {
         StepContext newContext = documents.checkChannel(stepContext);
         boolean more = true;
         boolean waiting = true;                        
-        runtime.getWaiter().initialize(null,newContext.curChannel,this,null,"    PIPE > WAITING CHANNEL IS CLOSED...");
-        while (waiting) {          
-            int pos = c_pos.get(stepContext.curChannel);
-            int size = documents.size(newContext.curChannel);            
+        Waiting waiter = runtime.newWaiterInstance(null,newContext.curChannel,this,null,"    PIPE > WAITING CHANNEL IS CLOSED...X");
+        while (waiting) {                    
+            int pos = c_pos.get(newContext.curChannel);
+            int size = documents.size(newContext.curChannel);                        
             if (pos < size) {
                 waiting = false;
             } else {                
-                boolean closed = closed(newContext);
+                boolean closed = closed(newContext);                
                 if (closed) {
                     waiting = false;
                     // must do that for security if channel is closed after the first test
-                    pos = c_pos.get(stepContext.curChannel);
+                    pos = c_pos.get(newContext.curChannel);
                     size = documents.size(newContext.curChannel);            
-                    more = (pos < size);                        
+                    more = (pos < size);                                            
                 } else {
-                    runtime.getWaiter().check("("+pos+"/"+size+")");                    
+                    waiter.check("("+pos+"/"+size+")");                    
                     Thread.yield();     
                 }     
             }
@@ -180,20 +180,20 @@ public class Pipe implements ReadablePipe, WritablePipe {
     public PipedDocument readAsStream(StepContext stepContext) {                
         StepContext newContext = documents.checkChannel(stepContext);                          
         runtime.getTracer().debug(null,newContext,-1,this,null,"    PIPE > TRY READING...");                
-        if (c_pos.get(stepContext.curChannel) > 0 && !readSeqOk) {                  
+        if (c_pos.get(newContext.curChannel) > 0 && !readSeqOk) {                  
             throw XProcException.dynamicError(6);
         }
                 
         PipedDocument doc = null;                
         if (moreDocuments(newContext)) {
-            doc = documents.get(newContext.curChannel, c_pos.get(stepContext.curChannel));
-            runtime.getWaiter().initialize(null,newContext.curChannel,this,null,"    PIPE > WAITING FOR DOCUMENT..."); 
+            doc = documents.get(newContext.curChannel, c_pos.get(newContext.curChannel));
+            Waiting waiter = runtime.newWaiterInstance(null,newContext.curChannel,this,null,"    PIPE > WAITING FOR DOCUMENT..."); 
             while (doc==null) {                   
-                runtime.getWaiter().check();
+                waiter.check();
                 Thread.yield();
-                doc = documents.get(newContext.curChannel, c_pos.get(stepContext.curChannel));
+                doc = documents.get(newContext.curChannel, c_pos.get(newContext.curChannel));
             }
-            c_pos.increment(stepContext.curChannel);                        
+            c_pos.increment(newContext.curChannel);                        
             runtime.getTracer().debug(null,newContext,-1,this,doc,"    PIPE > READ ");            
         } else {
             runtime.getTracer().debug(null,newContext,-1,this,null,"    PIPE > NO MORE DOCUMENT");            
@@ -216,13 +216,13 @@ public class Pipe implements ReadablePipe, WritablePipe {
         if (documents.size(stepContext.curChannel) > 1 && !writeSeqOk) {
             throw XProcException.dynamicError(7);
         }        
-        if (!writeSeqOk) {            
+        if (!writeSeqOk) {                   
             documents.close(stepContext.curChannel);
         }            
     }          
     
     // Innovimax: new function
-    public void close(StepContext stepContext) {                
+    public void close(StepContext stepContext) {             
         documents.close(stepContext.curChannel);                
     }    
 
@@ -243,8 +243,8 @@ public class Pipe implements ReadablePipe, WritablePipe {
       runtime.getTracer().debug(null,null,channel,this,document,"    PIPE > WRITE ");
       if (documents.size(channel) > 1 && !writeSeqOk) {
           throw XProcException.dynamicError(7);
-      }        
-      if (!writeSeqOk) {            
+      }              
+      if (!writeSeqOk) {                          
           documents.close(channel);            
       }      
       return document;

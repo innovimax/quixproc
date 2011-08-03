@@ -46,6 +46,7 @@ import innovimax.quixproc.codex.util.ParameterCollector;
 import innovimax.quixproc.codex.util.OptionsCalculator;
 import innovimax.quixproc.codex.util.VariablesCalculator;
 import innovimax.quixproc.codex.util.ErrorHandler;
+import innovimax.quixproc.codex.util.Waiting;
 
 public class XPipeline extends XCompoundStep {
     private static final QName c_param_set = new QName("c", XProcConstants.NS_XPROC_STEP, "param-set");
@@ -323,7 +324,7 @@ public class XPipeline extends XCompoundStep {
             if (port.startsWith("|") && inputs.get(port).size() > 0) {
                 String wport = port.substring(1);
                 WritablePipe pipe = outputs.get(wport);
-                DocumentCollector outCollector = new DocumentCollector(DocumentCollector.TYPE_OUTPUT, runtime, this, inputs.get(port), pipe, true);                
+                DocumentCollector outCollector = new DocumentCollector(DocumentCollector.TYPE_OUTPUT, runtime, this, inputs.get(port), pipe, true);
                 outCollectors.add(outCollector);
                 Thread toc = new Thread(errorHandler, outCollector); 
                 runtime.getTracer().debug(this,null,-1,null,null,"PIPELINE > RUN COLLECT-OUTPUT THREAD '"+wport+"'");
@@ -333,10 +334,10 @@ public class XPipeline extends XCompoundStep {
         checkErrors();
         
         // Innovimax: waiting before close frame        
-        runtime.getWaiter().initialize(this,stepContext.curChannel,null,null,"PIPELINE > WAITING END OF STEPS..."); 
+        Waiting waiter = runtime.newWaiterInstance(this,stepContext.curChannel,null,null,"PIPELINE > WAITING END OF STEPS..."); 
         while (subpipelineRunning() || collectorRunning(outCollectors)) {            
             checkErrors();
-            runtime.getWaiter().check(true);
+            waiter.check(true);
             // innovimax: statistics        
             long mem = Runtime.getRuntime().totalMemory() - startTotalMem + startedMemory - Runtime.getRuntime().freeMemory();
             if (mem>maximumMemory) { maximumMemory = mem; }              

@@ -813,8 +813,10 @@ public class XProcRuntime {
     }        
     
     // Innovimax: new function
-    public Waiting getWaiter() {
-        return qconfig.getWaiter();
+    public Waiting newWaiterInstance(XStep xstep, int channel, ReadablePipe pipe, PipedDocument doc, String message) {
+        Waiting waiter = qconfig.getWaiter().newInstance(xstep,channel,pipe,doc,message);
+        waiter.setRuntime(this);
+        return waiter;
     }            
     
     // Innovimax: new function    

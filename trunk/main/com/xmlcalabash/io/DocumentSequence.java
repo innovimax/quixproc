@@ -114,7 +114,7 @@ public class DocumentSequence {
     // Innovimax: new function    
     public StepContext checkChannel(StepContext stepContext) {        
         if (stepContext.curChannel != stepContext.altChannel) {            
-            runtime.getWaiter().initialize(null,stepContext.curChannel,null,null,"    PIPE > WAITING CHANNEL IS CREATED..."+this);
+            Waiting waiter = runtime.newWaiterInstance(null,stepContext.curChannel,null,null,"    PIPE > WAITING CHANNEL IS CREATED..."+this);
             while (true) {         
                 if (documentsMap.containsKey(stepContext.curChannel)) {
                     return stepContext;
@@ -123,7 +123,7 @@ public class DocumentSequence {
                     newContext.curChannel = stepContext.altChannel;                    
                     return newContext;
                 } else {                
-                    runtime.getWaiter().check();                    
+                    waiter.check();                    
                     Thread.yield();
                 }                       
             }                      
@@ -150,8 +150,8 @@ public class DocumentSequence {
     }       
     
     // Innovimax: new function
-    private void add(int channel, PipedDocument document) {                
-        DocumentList documents = addSequence(channel);        
+    private void add(int channel, PipedDocument document) {                        
+        DocumentList documents = addSequence(channel);                
         boolean error = false;
         Boolean closed = closedMap.get(channel);        
         if (closed != null) {  
@@ -167,13 +167,13 @@ public class DocumentSequence {
     }
 
     // Innovimax: new function  
-    public void close(int channel) {                
+    public void close(int channel) {                        
         addSequence(channel);
         closedMap.put(channel, true);   
     }    
     
     // Innovimax: new function  
-    public boolean closed(int channel) {        
+    public boolean closed(int channel) {              
         Boolean closed = closedMap.get(channel);              
         if (closed != null) {  
             return closed.booleanValue();    
