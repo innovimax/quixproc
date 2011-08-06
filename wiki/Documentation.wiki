@@ -1,6 +1,5 @@
 #summary Documentation of QuiXProc
-#sidebar TableOfContents
-
+<wiki:toc max_depth="3" />
 = Introduction =
 
 This page is the documentation page of QuiXProc
