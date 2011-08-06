@@ -6,7 +6,12 @@ This page is the documentation page of QuiXProc
 
 = Installation =
 == Simple Way ==
+Go to the [http://www.quixproc.com/quix/home QuiXProc website] and [http://www.quixproc.com/quix/info?type=register register] to have access to Innovimax's compilation Services. Note that the QuiXProc compilation services (QuiXProc Pro and QuiXProc Free) are improved version of QuiXProc Open.
+
+
 == Detailled Way ==
+http://quixproc.googlecode.com/svn/wiki/QuiXProc.png
+
 To have access to *QuiXProc Open*:
   * First check out this source code which is *Java 1.6+* compliant :http://code.google.com/p/quixproc/source/checkout
   * check out the source code of *QuiXPath*:  http://code.google.com/p/quixpath/source/checkout
