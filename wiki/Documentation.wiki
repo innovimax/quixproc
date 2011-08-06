@@ -1,4 +1,5 @@
 #summary Documentation of QuiXProc
+#sidebar TableOfContents
 
 = Introduction =
 
