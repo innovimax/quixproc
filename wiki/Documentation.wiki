@@ -4,6 +4,34 @@
 
 This page is the documentation page of QuiXProc
 
+= Installation =
+== Simple Way ==
+== Detailled Way ==
+To have access to *QuiXProc Open*:
+  * First check out this source code which is *Java 1.6+* compliant :http://code.google.com/p/quixproc/source/checkout
+  * check out the source code of *QuiXPath*:  http://code.google.com/p/quixpath/source/checkout
+  * check out the source code of *FXP*: https://gforge.inria.fr/scm/?group_id=1677
+  * check out *Saxon 9.3*: http://saxon.sourceforge.net/
+  * check out all the dependencies: 
+    * Apache commons:  
+      * httpclient (3.1) http://archive.apache.org/dist/httpcomponents/commons-httpclient/binary/
+      * logging : http://commons.apache.org/logging/download_logging.cgi
+      * io (1.3.1) : http://archive.apache.org/dist/commons/io/binaries/
+    * Apache FOP : http://mirrors.ircam.fr/pub/apache//xmlgraphics/fop/binaries/
+    * Apache Avalon Framework (4.2.0) : http://archive.apache.org/dist/avalon/avalon-framework/v4.2.0/
+    * Apache XMLGraphics commons : http://mirror.speednetwork.de/apache//xmlgraphics/commons/binaries/ 
+    * ISO-Relax: http://sourceforge.net/projects/iso-relax/
+    * Jing: http://code.google.com/p/jing-trang/
+    * Metadata Extractor (2.3.1) : http://code.google.com/p/metadata-extractor/
+    * MSV (Multi Schema Validator): http://java.net/downloads/msv/releases/
+    * !TagSoup: http://home.ccil.org/~cowan/XML/tagsoup/
+    * XMLUnit: http://xmlunit.sourceforge.net/
+
+You can also use the build.xml that has been contributed so far : issue 3
+
+Once everything compiled then you can launch any Class of the `innovimax.quixproc.codex.drivers.open.*` package
+`QuiXProcB` and `RunTestB` (respectively `QuiXProcC` and `RunTestC`) permits to launch QuiXProc and the Testsuite with different parameters.
+
 = Details =
 
 == Command line Options ==
