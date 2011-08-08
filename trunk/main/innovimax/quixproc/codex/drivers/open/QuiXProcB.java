@@ -20,6 +20,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 package innovimax.quixproc.codex.drivers.open;
 
 import innovimax.quixproc.codex.drivers.QuiXProc;
+import innovimax.quixproc.codex.util.IEQuiXPath;
 import innovimax.quixproc.codex.util.QConfig;
 import innovimax.quixproc.codex.util.Spying;
 import innovimax.quixproc.codex.util.open.QuiXPathImpl;
@@ -52,7 +53,7 @@ public class QuiXProcB extends QuiXProc
     Tracer tracer = new Tracer();
     Waiter waiter = new Waiter();
     Spy spy = new Spy();
-    IQuiXPath quixpath = new QuiXPathImpl();
+    IEQuiXPath quixpath = new QuiXPathImpl();
     QConfig config = new QConfig();
     config.setTracer(tracer);
     config.setWaiter(waiter);

@@ -24,7 +24,6 @@ package innovimax.quixproc.codex.util;
 import java.io.File;
 import java.net.URI;
 
-import com.quixpath.interfaces.IQuiXPath;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.util.URIUtils;
 
@@ -41,7 +40,7 @@ public class QConfig {
   private Tracing tracer = null;
   private Waiting waiter = null;
   private Spying spy = null;
-  private IQuiXPath quixpath = null;
+  private IEQuiXPath quixpath = null;
   private int traceMode = 0;
   private int runMode = 0;
   private File baseDir = null;
@@ -82,11 +81,11 @@ public class QConfig {
     this.runMode = runMode;
   }      
   
-  public void setQuiXPath(IQuiXPath quixpath) {
+  public void setQuiXPath(IEQuiXPath quixpath) {
     this.quixpath = quixpath;
   }
   
-  public IQuiXPath getQuiXPath() {
+  public IEQuiXPath getQuiXPath() {
     return this.quixpath;
   }
   public int getRunMode() {    

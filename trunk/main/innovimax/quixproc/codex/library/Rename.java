@@ -92,7 +92,7 @@ public class Rename extends DefaultStep implements MatchHandler {
         try {             
             out = result.newPipedDocument(stepContext.curChannel);             
             EventReader evr = new EventReader(source.readAsStream(stepContext), null);                 
-            XPathMatcher xmatch = new XPathMatcher(runtime.getQConfig().getQuiXPath(), evr, this, match.getString(), false);
+            XPathMatcher xmatch = new XPathMatcher(runtime.getProcessor(), runtime.getQConfig().getQuiXPath(), evr, this, match.getString(), false);
             Thread t = new Thread(xmatch);            
             runtime.getTracer().debug(step,null,-1,source,null,"  RENAME > RUN MATCH THREAD");                    
             t.start();                                           

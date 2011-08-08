@@ -68,7 +68,7 @@ public class DocumentSelector implements MatchHandler
   { 
     try {
       EventReader evr = new EventReader(stepContext, in, null);         
-      XPathMatcher xmatch = new XPathMatcher(runtime.getQConfig().getQuiXPath(), evr, this, xpath, true);
+      XPathMatcher xmatch = new XPathMatcher(runtime.getProcessor(), runtime.getQConfig().getQuiXPath(), evr, this, xpath, true);
       Thread t = new Thread(xmatch);                         
       t.start();              
     } 

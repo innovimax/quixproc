@@ -24,6 +24,7 @@ package innovimax.quixproc.codex.util;
 import innovimax.quixproc.codex.io.AggregatePipe;
 import innovimax.quixproc.datamodel.QuixEvent;
 import innovimax.quixproc.datamodel.IStream;
+import innovimax.quixproc.datamodel.QuixException;
 import innovimax.quixproc.util.SpyHandler;
 
 import java.util.List;
@@ -55,10 +56,10 @@ public class EventReader {
     public EventReader(StepContext stepContext, ReadablePipe pipe, SpyHandler spy) { 
         this.stepContext = stepContext;        
         this.pipe = pipe;                    
-        this.spy = spy;                     
-        doc = pipe.readAsStream(stepContext);                  
+        this.spy = spy;           
+        doc = pipe.readAsStream(stepContext);                          
         if (doc!=null) {                     
-            stream = doc.registerReader();
+            stream = doc.registerReader();            
         }        
         startSequence = true;
     }    
@@ -84,7 +85,7 @@ public class EventReader {
         return index-1; 
     }
    
-    public boolean hasEvent() {  
+    public boolean hasEvent() throws QuixException {  
         if (closed) { 
             return false;
         }
@@ -117,7 +118,7 @@ public class EventReader {
         return false;
     }             
     
-    public QuixEvent nextEvent() {
+    public QuixEvent nextEvent() throws QuixException {
         if (hasEvent()) {
             if (startSequence) {
                 startSequence = false;
@@ -127,8 +128,8 @@ public class EventReader {
                 endSequence = false;                
                 closed = true;               
                 return QuixEvent.getEndSequence();
-            }
-            QuixEvent event = stream.next();
+            }            
+            QuixEvent event = stream.next();            
             switch(event.getType()) {
                 case START_DOCUMENT:
                     if ( spy!= null) spy.spyStartDocument();
