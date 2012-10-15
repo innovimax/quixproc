@@ -14,10 +14,10 @@ http://quixproc.googlecode.com/svn/wiki/QuiXProc.png
 
 To have access to *QuiXProc Open*:
   * First check out this source code which is *Java 1.6+* compliant :http://code.google.com/p/quixproc/source/checkout
-  * check out the source code of *QuiXPath*:  http://code.google.com/p/quixpath/source/checkout
-  * check out the source code of *QuiXDM*:  http://code.google.com/p/quixdm/source/checkout
-  * check out the source code of *FXP*: https://gforge.inria.fr/scm/?group_id=1677
-  * check out *Saxon 9.3*: http://saxon.sourceforge.net/
+  * check out the source code of *QuiXPath 1.1*:  http://code.google.com/p/quixpath/source/checkout
+  * check out the source code of *QuiXDM 1.1 *:  http://code.google.com/p/quixdm/source/checkout
+  * check out the source code of *FXP 1.1 *: https://gforge.inria.fr/scm/?group_id=1677
+  * check out *Saxon 9.4*: http://saxon.sourceforge.net/
   * check out all the dependencies: 
     * Apache commons:  
       * httpclient (3.1) http://archive.apache.org/dist/httpcomponents/commons-httpclient/binary/
