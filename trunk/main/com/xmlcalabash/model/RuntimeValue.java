@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -19,7 +19,6 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
-
 package com.xmlcalabash.model;
 
 import java.net.URI;
@@ -28,6 +27,7 @@ import java.util.Vector;
 
 import net.sf.saxon.lib.NamespaceConstant;
 import net.sf.saxon.s9api.Axis;
+import net.sf.saxon.s9api.ItemType;
 import net.sf.saxon.s9api.ItemTypeFactory;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
@@ -36,11 +36,16 @@ import net.sf.saxon.s9api.XdmItem;
 import net.sf.saxon.s9api.XdmNode;
 import net.sf.saxon.s9api.XdmSequenceIterator;
 import net.sf.saxon.s9api.XdmValue;
-import net.sf.saxon.s9api.ItemType;
 import net.sf.saxon.value.StringValue;
+
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
 
+
+/**
+ *
+ * @author ndw
+ */
 public class RuntimeValue {
     private Vector<XdmItem> generalValue = null;
     private String value = null;
@@ -206,5 +211,5 @@ public class RuntimeValue {
         if (nsBindings != null) {  
             this.nsBindings = new Hashtable<String,String>(nsBindings);
         }
-    }           
+    }        
 }

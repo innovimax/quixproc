@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,25 +21,30 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.runtime;
 
-import com.xmlcalabash.io.Pipe;
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcData;
-import com.xmlcalabash.util.ProcessMatchingNodes;
-import com.xmlcalabash.util.ProcessMatch;
-import com.xmlcalabash.util.TreeWriter;
-import com.xmlcalabash.model.*;
+import innovimax.quixproc.codex.util.StepContext;
+import innovimax.quixproc.codex.util.VariablesCalculator;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
 
-import java.util.Hashtable;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.Pipe;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.model.RuntimeValue;
+import com.xmlcalabash.model.Step;
+import com.xmlcalabash.model.Viewport;
+import com.xmlcalabash.util.ProcessMatch;
+import com.xmlcalabash.util.ProcessMatchingNodes;
+import com.xmlcalabash.util.TreeWriter;
 
-import innovimax.quixproc.codex.util.VariablesCalculator;
-  
-import innovimax.quixproc.codex.util.StepContext;  
-
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 15, 2008
+ * Time: 7:03:35 AM
+ * To change this template use File | Settings | File Templates.
+ */
 public class XViewport extends XCompoundStep implements ProcessMatchingNodes {
     private Pipe current = null;
     private ProcessMatch matcher = null;
@@ -55,7 +60,7 @@ public class XViewport extends XCompoundStep implements ProcessMatchingNodes {
             if (current == null) {
                 current = new Pipe(runtime);
             }
-            return new Pipe(runtime,current.documents());
+            return new Pipe(runtime,current.documents(stepContext));
         } else {
             return super.getBinding(stepName, portName);
         }
@@ -71,10 +76,9 @@ public class XViewport extends XCompoundStep implements ProcessMatchingNodes {
         sequencePosition = 0;
     }
 
-    // Innovimax: replaced by gorun()
-    //public void run() throws SaxonApiException {
+    // Innovimax: modified function    
     public void gorun() throws SaxonApiException {
-        info(null, "Running p:viewport " + step.getName());
+        fine(null, "Running p:viewport " + step.getName());
 
         // Innovimax: XProcData desactivated
         //XProcData data = runtime.getXProcData();
@@ -106,22 +110,22 @@ public class XViewport extends XCompoundStep implements ProcessMatchingNodes {
         sequenceLength = matcher.count(doc, match, false);
 
         // Innovimax: XProcData desactivated
-        //runtime.getXProcData().setIterationSize(sequenceLength);         
-        setIterationSize(sequenceLength);         
-
-        matcher.match(doc, match);
+        //runtime.getXProcData().setIterationSize(sequenceLength);
+        setIterationSize(sequenceLength);              
+        
+        matcher.match(doc, match);        
 
         for (String port : inputs.keySet()) {
             if (port.startsWith("|")) {
                 String wport = port.substring(1);
                 WritablePipe pipe = outputs.get(wport);
                 XdmNode result = matcher.getResult();
-                pipe.write(stepContext, result);
+                pipe.write(stepContext,result);
                 finest(step.getNode(), "Viewport output copy from matcher to " + pipe);
                 // Innovimax: close pipe
-                pipe.close(stepContext);                
+                pipe.close(stepContext);                 
             }
-        }
+        }        
     }
 
     public boolean processStartDocument(XdmNode node) {
@@ -134,16 +138,17 @@ public class XViewport extends XCompoundStep implements ProcessMatchingNodes {
 
     // Innovimax: modified function
     public boolean processStartElement(XdmNode node) {
+        final int LOOP_NUMBER = 500000;        
         // Use a TreeWriter to make the matching node into a proper document
         TreeWriter treeWriter = new TreeWriter(runtime);
         treeWriter.startDocument(node.getBaseURI());
         treeWriter.addSubtree(node);
         treeWriter.endDocument();
 
-        current.resetWriter(stepContext);
-        current.write(stepContext, treeWriter.getResult());
+        current.resetWriter(stepContext);        
+        current.write(stepContext,treeWriter.getResult());        
         // Innovimax: close pipe
-        current.close(stepContext);         
+        current.close(stepContext);                
 
         finest(step.getNode(), "Viewport copy matching node to " + current);
 
@@ -151,33 +156,33 @@ public class XViewport extends XCompoundStep implements ProcessMatchingNodes {
         // Innovimax: XProcData desactivated
         //runtime.getXProcData().setIterationPosition(sequencePosition);        
         setIterationPosition(sequencePosition); 
-        
+
+        // Calculate all the variables
         inScopeOptions = parent.getInScopeOptions();
-        
-        // Innovimax: calculate all variables
+        // Innovimax: calculate all variables        
         /*for (Variable var : step.getVariables()) {
             RuntimeValue value = computeValue(var);
+
             if ("p3".equals(var.getName().getLocalName())) {
                 System.err.println("DEBUG ME1: " + value.getString());
             }
+=
             inScopeOptions.put(var.getName(), value);
-        }*/               
+        }*/
         VariablesCalculator vcalculator = new VariablesCalculator(runtime, this, step, inScopeOptions);
-        vcalculator.exec();  
+        vcalculator.exec();         
 
         try {
             for (XStep step : subpipeline) {
                 step.reset();
-                // Innovimax: run() replaced by gorun()
-                //step.run();
-                step.stepContext = new StepContext(stepContext); 
-                step.gorun();                                
+                // Innovimax: set step context
+                step.stepContext = new StepContext(stepContext);                 
+                step.gorun();                 
             }
         } catch (SaxonApiException sae) {
             throw new XProcException(sae);
         }
-
-
+        
         try {
             int count = 0;
             for (String port : inputs.keySet()) {
@@ -191,9 +196,8 @@ public class XViewport extends XCompoundStep implements ProcessMatchingNodes {
                                 if (!output.getSequence()) {
                                     throw XProcException.dynamicError(7);
                                 }
-                            }
-
-                            XdmNode doc = reader.read(stepContext);
+                            }                            
+                            XdmNode doc = reader.read(stepContext);                            
                             matcher.addSubtree(doc);
                         }
                         reader.resetReader(stepContext);
@@ -202,8 +206,7 @@ public class XViewport extends XCompoundStep implements ProcessMatchingNodes {
             }
         } catch (SaxonApiException sae) {
             throw new XProcException(sae);
-        }
-
+        }        
         return false;
     }
 
@@ -247,5 +250,6 @@ public class XViewport extends XCompoundStep implements ProcessMatchingNodes {
     private void cloneInstantiation(Pipe current, ProcessMatch matcher) {
         this.current = current;        
         this.matcher = matcher;        
-    }       
+    }      
+    
 }

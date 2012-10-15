@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -19,31 +19,38 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
-
 package com.xmlcalabash.extensions;
 
-import com.xmlcalabash.library.DefaultStep;
-import com.xmlcalabash.library.HttpRequest;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.io.Pipe;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.runtime.XAtomicStep;
-import com.xmlcalabash.model.RuntimeValue;
-import com.xmlcalabash.util.TreeWriter;
-import com.xmlcalabash.util.S9apiUtils;
-import com.xmlcalabash.util.RelevantNodes;
+import java.io.File;
+import java.net.URI;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
+import java.util.TimeZone;
+
+import net.sf.saxon.s9api.Axis;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.Axis;
 
-import java.net.URI;
-import java.io.File;
-import java.util.GregorianCalendar;
-import java.util.Calendar;
-import java.util.TimeZone;
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.Pipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.library.DefaultStep;
+import com.xmlcalabash.library.HttpRequest;
+import com.xmlcalabash.model.RuntimeValue;
+import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.RelevantNodes;
+import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.TreeWriter;
 
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Mar 12, 2009
+ * Time: 9:41:54 PM
+ * To change this template use File | Settings | File Templates.
+ */
 public class UriInfo extends DefaultStep {
     private static final QName _href = new QName("href");
     private static final QName _method = new QName("method");
@@ -179,10 +186,8 @@ public class UriInfo extends DefaultStep {
             req.addEndElement();
             req.endDocument();
 
-            inputPipe.write(stepContext, req.getResult());
-
-            // Innovimax: run() replaced by gorun()
-            // httpReq.run();
+            inputPipe.write(stepContext,req.getResult());
+            
             httpReq.gorun();
 
             XdmNode result = S9apiUtils.getDocumentElement(outputPipe.read(stepContext));
@@ -240,7 +245,7 @@ public class UriInfo extends DefaultStep {
 
         tree.endDocument();
 
-        result.write(stepContext, tree.getResult());
+        result.write(stepContext,tree.getResult());
     }
 }
 

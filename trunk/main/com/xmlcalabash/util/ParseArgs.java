@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,25 +21,35 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.util;
 
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.runtime.XLibrary;
-import com.xmlcalabash.runtime.XPipeline;
-import net.sf.saxon.s9api.QName;
-import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.XdmNode;
-
 import java.io.File;
 import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Set;
 import java.util.Vector;
 
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XdmNode;
+
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.runtime.XLibrary;
+
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Nov 3, 2008
+ * Time: 6:37:51 AM
+ * To change this template use File | Settings | File Templates.
+ */
 public class ParseArgs {
     public boolean debugExplicit = false;
     public boolean debug = false;
+    public boolean showVersion = false;
 
+    public String saxonProcessor = null;
+    public String saxonConfigFile = null;
     public boolean schemaAwareExplicit = false;
     public boolean schemaAware = false;
 
@@ -60,11 +70,15 @@ public class ParseArgs {
     private StepArgs lastStep = null;
 
     public boolean extensionValues = false;
-       
+    public boolean allowXPointerOnText = false;
+    public boolean transparentJSON = false;
+    public String jsonFlavor = null;
+    public boolean useXslt10 = false;
+
     private String[] args = null;
     private int argpos = 0;
     private String arg = null;
-    
+
     public void parse(String[] args) {
         this.args = args;
         argpos = 0;
@@ -75,7 +89,20 @@ public class ParseArgs {
         while (arg != null || argpos < args.length) {
             if (arg == null) {
                 arg = args[argpos];
-            }            
+            }
+
+            if (arg.startsWith("-P") || arg.startsWith("--saxon-processor")) {
+                saxonProcessor = parseString("P","saxon-processor");
+                if ( !("he".equals(saxonProcessor) || "pe".equals(saxonProcessor) || "ee".equals(saxonProcessor)) ) {
+                    throw new XProcException("Invalid Saxon processor option: " + saxonProcessor + ". Must be 'he', 'pe', or 'ee'.");
+                }
+                continue;
+            }
+
+            if (arg.startsWith("--saxon-configuration")) {
+                saxonConfigFile = parseString(null, "saxon-configuration");
+                continue;
+            }
 
             if (arg.startsWith("-a") || arg.startsWith("--schema-aware")) {
                 schemaAware = parseBoolean("a","schema-aware");
@@ -146,6 +173,10 @@ public class ParseArgs {
                 continue;
             }
 
+            if (arg.startsWith("-v") || arg.equals("--version")) {
+                showVersion = parseBoolean("v","version");
+                continue;
+            }
 
             if (arg.startsWith("-s") || arg.startsWith("--step")) {
                 stepName = parseQName("s","step");
@@ -166,8 +197,19 @@ public class ParseArgs {
                 String ext = parseString("X", "extension");
                 if ("general-values".equals(ext)) {
                     extensionValues = true;
+                } else if ("xpointer-on-text".equals(ext)) {
+                    allowXPointerOnText = true;
+                } else if ("use-xslt-1.0".equals(ext) || "use-xslt-10".equals(ext)) {
+                    useXslt10 = true;
+                } else if ("transparent-json".equals(ext)) {
+                    transparentJSON = true;
+                } else if (ext.startsWith("json-flavor=")) {
+                    jsonFlavor = ext.substring(12);
+                    if (!JSONtoXML.knownFlavor(jsonFlavor)) {
+                        throw new XProcException("Can't parse JSON flavor '" + ext + "' or unrecognized format: " + jsonFlavor);
+                    }
                 } else {
-                    throw new XProcException("Unexpected extension name: " + ext);
+                    throw new XProcException("Unexpected extension: " + ext);
                 }
                 continue;
             }
@@ -435,22 +477,25 @@ public class ParseArgs {
     }
 
     private String parseString(String shortName, String longName) {
-        String sOpt = "-" + shortName;
-        String lOpt = "--" + longName;
         String value = null;
 
-        if (arg.startsWith(sOpt)) {
-            if (arg.equals(sOpt)) {
-                value = args[++argpos];
-                arg = null;
-                argpos++;
-            } else {
-                value = arg.substring(2);
-                arg = null;
-                argpos++;
+        if (shortName != null) {
+            String sOpt = "-" + shortName;
+            if (arg.startsWith(sOpt)) {
+                if (arg.equals(sOpt)) {
+                    value = args[++argpos];
+                    arg = null;
+                    argpos++;
+                } else {
+                    value = arg.substring(2);
+                    arg = null;
+                    argpos++;
+                }
+                return value;
             }
-            return value;
         }
+
+        String lOpt = "--" + longName;
 
         if (arg.equals(lOpt)) {
             value = args[++argpos];

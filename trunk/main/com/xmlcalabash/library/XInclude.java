@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,38 +22,54 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.library;
 
-import java.util.Stack;
-import java.util.Hashtable;
-import java.util.Vector;
-import java.util.Iterator;
-import java.util.HashSet;
-import java.net.URI;
-import java.net.URL;
-import java.net.URLConnection;
-import java.net.URISyntaxException;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.util.Hashtable;
+import java.util.Stack;
+import java.util.Vector;
+import java.util.regex.Pattern;
 
+import net.sf.saxon.s9api.Axis;
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.s9api.XdmNodeKind;
+import net.sf.saxon.s9api.XdmSequenceIterator;
+
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.util.*;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.model.*;
-import net.sf.saxon.s9api.*;
-
+import com.xmlcalabash.model.RuntimeValue;
 import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.HttpUtils;
+import com.xmlcalabash.util.ProcessMatch;
+import com.xmlcalabash.util.ProcessMatchingNodes;
+import com.xmlcalabash.util.RelevantNodes;
+import com.xmlcalabash.util.XPointer;
 
+/**
+ *
+ * @author ndw
+ */
 public class XInclude extends DefaultStep implements ProcessMatchingNodes {
     private static final QName xi_include = new QName("http://www.w3.org/2001/XInclude","include");
     private static final QName xi_fallback = new QName("http://www.w3.org/2001/XInclude","fallback");
     private static final QName _fixup_xml_base = new QName("", "fixup-xml-base");
     private static final QName _fixup_xml_lang = new QName("", "fixup-xml-lang");
+    private static final QName cx_mark_roots = new QName("cx",XProcConstants.NS_CALABASH_EX,"mark-roots");
+    private static final QName cx_copy_attributes = new QName("cx",XProcConstants.NS_CALABASH_EX,"copy-attributes");
+    private static final QName cx_root = new QName("cx",XProcConstants.NS_CALABASH_EX,"root");
     private static final QName _encoding = new QName("", "encoding");
     private static final QName _href = new QName("", "href");
     private static final QName _parse = new QName("", "parse");
     private static final QName _xpointer = new QName("", "xpointer");
+    private static final Pattern linesXptrRE = Pattern.compile("\\s*lines\\s*\\(\\s*(\\d+)\\s*-\\s*(\\d+)\\s*\\)\\s*");
 
     private ReadablePipe source = null;
     private WritablePipe result = null;
@@ -61,6 +77,8 @@ public class XInclude extends DefaultStep implements ProcessMatchingNodes {
     private Stack<String> inside = new Stack<String> ();
     private boolean fixupBase = false;
     private boolean fixupLang = false;
+    private boolean markRoots = false;
+    private boolean copyAttributes = false;
     private Exception mostRecentException = null;
 
     /**
@@ -83,25 +101,43 @@ public class XInclude extends DefaultStep implements ProcessMatchingNodes {
         result.resetWriter(stepContext);
     }
 
-    public void gorun() throws SaxonApiException {        
+    public void gorun() throws SaxonApiException {
         super.gorun();
-                
+
         fixupBase = getOption(_fixup_xml_base, false);
         fixupLang = getOption(_fixup_xml_lang, false);
-        
-        XdmNode doc = source.read(stepContext);        
-        XdmNode xdoc = expandXIncludes(doc);        
 
-        result.write(stepContext, xdoc);
+        String mark = getStep().getExtensionAttribute(cx_copy_attributes);
+        if (mark == null || "false".equals(mark)) {
+            // nop
+        } else if ("true".equals(mark)) {
+            copyAttributes = true;
+        } else {
+            throw new XProcException("On p:xinclude, cx:copy-attributes must be 'true' or 'false'.");
+        }
+
+        mark = getStep().getExtensionAttribute(cx_mark_roots);
+        if (mark == null || "false".equals(mark)) {
+            // nop
+        } else if ("true".equals(mark)) {
+            markRoots = true;
+        } else {
+            throw new XProcException("On p:xinclude, cx:mark-roots must be 'true' or 'false'.");
+        }
+
+        XdmNode doc = source.read(stepContext);
+        XdmNode xdoc = expandXIncludes(doc);
+
+        result.write(stepContext,xdoc);
     }
 
     private XdmNode expandXIncludes(XdmNode doc) {
-        finest(doc, "Starting expandXIncludes");        
-        ProcessMatch matcher = new ProcessMatch(runtime, this);        
-        matcherStack.push(matcher);        
-        matcher.match(doc, new RuntimeValue("/|*", step.getNode()));        
-        XdmNode result = matcher.getResult();        
-        matcher = matcherStack.pop();        
+        finest(doc, "Starting expandXIncludes");
+        ProcessMatch matcher = new ProcessMatch(runtime, this);
+        matcherStack.push(matcher);
+        matcher.match(doc, new RuntimeValue("/|*", step.getNode()));
+        XdmNode result = matcher.getResult();
+        matcher = matcherStack.pop();
         return result;
     }
 
@@ -131,16 +167,17 @@ public class XInclude extends DefaultStep implements ProcessMatchingNodes {
             }
 
             if ("text".equals(parse)) {
-                if (xpointer != null) {
-                    throw new XProcException(step.getNode(), "XPointer cannot be applied with XInclude parse=text: " + href);
+                if (!runtime.getAllowXPointerOnText() && xpointer != null) {
+                    throw XProcException.stepError(1, "XPointer is not allowed on XInclude when parse='text'");
                 }
-                String text = readText(href, node, node.getBaseURI().toASCIIString());
+
+                String text = readText(href, node, node.getBaseURI().toASCIIString(), xpointer);
                 if (text == null) {
-                    finer(node, "XInclude text parse failed: " + href);
+                    finest(node, "XInclude text parse failed: " + href);
                     fallback(node, href);
                     return false;
                 } else {
-                    finer(node, "XInclude text parse: " + href);
+                    finest(node, "XInclude text parse: " + href);
                 }
                 matcher.addText(text);
                 return false;
@@ -150,7 +187,7 @@ public class XInclude extends DefaultStep implements ProcessMatchingNodes {
                 String iuri = null;
 
                 if (subdoc == null) {
-                    finer(node, "XInclude parse failed: " + href);
+                    finest(node, "XInclude parse failed: " + href);
                     fallback(node, href);
                     return false;
                 } else {
@@ -163,7 +200,7 @@ public class XInclude extends DefaultStep implements ProcessMatchingNodes {
                         throw XProcException.stepError(29,"XInclude document includes itself: " + href);
                     }
 
-                    finer(node, "XInclude parse: " + href);
+                    finest(node, "XInclude parse: " + href);
                 }
 
                 Vector<XdmNode> nodes = null;
@@ -177,20 +214,19 @@ public class XInclude extends DefaultStep implements ProcessMatchingNodes {
                         nodes.add(child);
                     }
                 } else {
-                    String xpath = xpointer.xpathEquivalent();
                     Hashtable<String,String> nsBindings = xpointer.xpathNamespaces();
-                    nodes = selectNodes(subdoc, xpath, nsBindings);
+                    nodes = xpointer.selectNodes(runtime,subdoc);
                 }
 
                 for (XdmNode snode : nodes) {
-                    if ((fixupBase || fixupLang) && snode.getNodeKind() == XdmNodeKind.ELEMENT) {
-                        Fixup fixup = new Fixup(runtime);
+                    if ((fixupBase || fixupLang || markRoots || copyAttributes) && snode.getNodeKind() == XdmNodeKind.ELEMENT) {
+                        Fixup fixup = new Fixup(runtime,node);
                         snode = fixup.fixup(snode);
                     }
 
                     if (snode.getNodeKind() == XdmNodeKind.ELEMENT || snode.getNodeKind() == XdmNodeKind.DOCUMENT) {
-                        inside.push(iuri);                        
-                        XdmNode ex = expandXIncludes(snode);                        
+                        inside.push(iuri);
+                        XdmNode ex = expandXIncludes(snode);
                         matcher.addSubtree(ex);
                         inside.pop();
                     } else {
@@ -233,44 +269,7 @@ public class XInclude extends DefaultStep implements ProcessMatchingNodes {
         throw new UnsupportedOperationException("processPI can't happen in XInclude");
     }
 
-    private Vector<XdmNode> selectNodes(XdmNode doc, String select, Hashtable<String,String> nsBindings) {
-        Vector<XdmNode> selectedNodes = new Vector<XdmNode> ();
-
-        XPathSelector selector = null;
-        XPathCompiler xcomp = runtime.getProcessor().newXPathCompiler();
-        for (String prefix : nsBindings.keySet()) {
-            xcomp.declareNamespace(prefix, nsBindings.get(prefix));
-        }
-
-        try {
-            XPathExecutable xexec = xcomp.compile(select);
-            selector = xexec.load();
-        } catch (SaxonApiException sae) {
-            throw new XProcException(sae);
-        }
-
-        try {
-            selector.setContextItem(doc);
-
-            Iterator iter = selector.iterator();
-            while (iter.hasNext()) {
-                XdmItem item = (XdmItem) iter.next();
-                XdmNode node = null;
-                try {
-                    node = (XdmNode) item;
-                } catch (ClassCastException cce) {
-                    throw new XProcException (step.getNode(), "XInclude pointer matched non-node item?");
-                }
-                selectedNodes.add(node);
-            }
-        } catch (SaxonApiException sae) {
-            throw new XProcException(sae);
-        }
-
-        return selectedNodes;
-    }
-
-    public String readText(String href, XdmNode node, String base) {
+    public String readText(String href, XdmNode node, String base, XPointer xpointer) {
         finest(null, "XInclude read text: " + href + " (" + base + ")");
 
         URI baseURI = null;
@@ -288,25 +287,38 @@ public class XInclude extends DefaultStep implements ProcessMatchingNodes {
             URL url = hrefURI.toURL();
             URLConnection conn = url.openConnection();
             String contentType = conn.getContentType();
+            int contentLength = conn.getContentLength();
             String charset = HttpUtils.getCharset(contentType);
 
             if (charset == null && node.getAttributeValue(_encoding) != null) {
                 charset = node.getAttributeValue(_encoding);
             }
 
-            // Get the response
-            BufferedReader rd = null;
             if (charset == null) {
-                rd = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-            } else {
-                rd = new BufferedReader(new InputStreamReader(conn.getInputStream(), charset));
+                charset = "utf-8";
             }
 
-            String line;
-            while ((line = rd.readLine()) != null) {
-                data += line + "\n";
+            // Get the response
+            InputStreamReader stream = null;
+            BufferedReader rd = null;
+
+            if (charset == null) {
+                stream = new InputStreamReader(conn.getInputStream());
+            } else {
+                stream = new InputStreamReader(conn.getInputStream(), charset);
             }
-            rd.close();
+
+            if (xpointer != null) {
+                data = xpointer.selectText(stream, contentLength);
+            } else {
+                rd = new BufferedReader(stream);
+                String line;
+                while ((line = rd.readLine()) != null) {
+                    data += line + "\n";
+                }
+                rd.close();
+            }
+            stream.close();
         } catch (Exception e) {
             finest(null, "XInclude read text failed");
             mostRecentException = e;
@@ -368,9 +380,11 @@ public class XInclude extends DefaultStep implements ProcessMatchingNodes {
         private XProcRuntime runtime = null;
         private ProcessMatch matcher = null;
         private boolean root = true;
+        private XdmNode xinclude = null;
 
-        public Fixup(XProcRuntime runtime) {
+        public Fixup(XProcRuntime runtime, XdmNode node) {
             this.runtime = runtime;
+            xinclude = node;
         }
 
         public XdmNode fixup(XdmNode node) {
@@ -394,11 +408,23 @@ public class XInclude extends DefaultStep implements ProcessMatchingNodes {
 
             if (root) {
                 root = false;
+
+                if (copyAttributes) {
+                    XdmSequenceIterator iter = xinclude.axisIterator(Axis.ATTRIBUTE);
+                    while (iter.hasNext()) {
+                        XdmNode child = (XdmNode) iter.next();
+                        if (!"".equals(child.getNodeName().getNamespaceURI())) {
+                            matcher.addAttribute(child);
+                        }
+                    }
+                }
+
                 XdmSequenceIterator iter = node.axisIterator(Axis.ATTRIBUTE);
                 while (iter.hasNext()) {
                     XdmNode child = (XdmNode) iter.next();
                     if ((XProcConstants.xml_base.equals(child.getNodeName()) && fixupBase)
-                        || (XProcConstants.xml_lang.equals(child.getNodeName()) && fixupLang)) {
+                        || (XProcConstants.xml_lang.equals(child.getNodeName()) && fixupLang)
+                        || (cx_mark_roots.equals(child.getNodeName()) && markRoots)) {
                         // nop;
                     } else {
                         matcher.addAttribute(child);
@@ -406,6 +432,9 @@ public class XInclude extends DefaultStep implements ProcessMatchingNodes {
                 }
                 if (fixupBase) {
                     matcher.addAttribute(XProcConstants.xml_base, node.getBaseURI().toASCIIString());
+                }
+                if (markRoots) {
+                    matcher.addAttribute(cx_root, "true");
                 }
                 String lang = getLang(node);
                 if (fixupLang && lang != null) {

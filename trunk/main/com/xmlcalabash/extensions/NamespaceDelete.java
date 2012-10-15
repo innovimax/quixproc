@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,22 +21,26 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.extensions;
 
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.core.XProcException;
+import java.util.HashSet;
+
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XdmNode;
+
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.library.DefaultStep;
 import com.xmlcalabash.runtime.XAtomicStep;
 import com.xmlcalabash.util.S9apiUtils;
-import net.sf.saxon.om.NamePool;
-import net.sf.saxon.om.NodeInfo;
-import net.sf.saxon.s9api.QName;
-import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.tree.iter.NamespaceIterator;
 
-import java.util.HashSet;
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 8, 2008
+ * Time: 7:44:07 AM
+ * To change this template use File | Settings | File Templates.
+ */
 
 public class NamespaceDelete extends DefaultStep {
     private static final QName _prefixes = new QName("","prefixes");
@@ -63,52 +67,22 @@ public class NamespaceDelete extends DefaultStep {
         result.resetWriter(stepContext);
     }
 
+    // Innovimax: modified function
     public void gorun() throws SaxonApiException {
         super.gorun();
 
-        HashSet<String> excludeUris = readPrefixes(step.getNode(), getOption(_prefixes).getString());
-
+        HashSet<String> excludeUris = S9apiUtils.excludeInlinePrefixes(step.getNode(), getOption(_prefixes).getString());
+         
         while (source.moreDocuments(stepContext)) {
             XdmNode doc = source.read(stepContext);
             runtime.finest(this, step.getNode(), "Namespace-delete step " + step.getName() + " read " + doc.getDocumentURI());
-            doc = S9apiUtils.removeNamespaces(runtime, doc, excludeUris);
-            result.write(stepContext, doc);
+            doc = S9apiUtils.removeNamespaces(runtime, doc, excludeUris, false);
+            result.write(stepContext,doc);
         }
         
         // Innovimax: close pipe
-        result.close(stepContext);
+        result.close(stepContext);        
     }
 
-    private HashSet<String> readPrefixes(XdmNode node, String prefixList) {
-        HashSet<String> excludeURIs = new HashSet<String> ();
-        excludeURIs.add(XProcConstants.NS_XPROC);
-
-        if (prefixList != null) {
-            // FIXME: Surely there's a better way to do this?
-            NodeInfo inode = node.getUnderlyingNode();
-            NamePool pool = inode.getNamePool();
-            int inscopeNS[] = NamespaceIterator.getInScopeNamespaceCodes(inode);
-
-            for (String pfx : prefixList.split("\\s+")) {
-                boolean found = false;
-
-                for (int pos = 0; pos < inscopeNS.length; pos++) {
-                    int ns = inscopeNS[pos];
-                    String nspfx = pool.getPrefixFromNamespaceCode(ns);
-                    String nsuri = pool.getURIFromNamespaceCode(ns);
-
-                    if (pfx.equals(nspfx) || ("#default".equals(pfx) && "".equals(nspfx)) || "#all".equals(pfx)) {
-                        found = true;
-                        excludeURIs.add(nsuri);
-                    }
-                }
-
-                if (!found) {
-                    throw new XProcException(XProcConstants.staticError(57), "No binding for '" + pfx + ":'");
-                }
-            }
-        }
-
-        return excludeURIs;
-    }
+  
 }

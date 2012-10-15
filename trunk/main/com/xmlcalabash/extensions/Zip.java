@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -19,53 +19,59 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
-
 package com.xmlcalabash.extensions;
 
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
-import java.net.URISyntaxException;
 import java.util.Enumeration;
 import java.util.GregorianCalendar;
-import java.util.Hashtable;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.TimeZone;
 import java.util.zip.CRC32;
+import java.util.zip.Deflater;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
-import java.util.zip.Deflater;
+
 import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.XMLGregorianCalendar;
 
+import net.sf.saxon.s9api.Axis;
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.Serializer;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.s9api.XdmNodeKind;
+
+import com.xmlcalabash.core.XProcConstants;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.util.TreeWriter;
-import com.xmlcalabash.util.S9apiUtils;
-import com.xmlcalabash.util.RelevantNodes;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.io.Pipe;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.library.DefaultStep;
 import com.xmlcalabash.library.HttpRequest;
 import com.xmlcalabash.runtime.XAtomicStep;
-import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.QName;
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.Axis;
-import net.sf.saxon.s9api.XdmNodeKind;
-import net.sf.saxon.s9api.Serializer;
+import com.xmlcalabash.util.RelevantNodes;
+import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.TreeWriter;
 
+/**
+ *
+ * @author ndw
+ */
 public class Zip extends DefaultStep {
     protected final static QName _href = new QName("", "href");
     protected final static QName _name = new QName("", "name");
@@ -90,8 +96,8 @@ public class Zip extends DefaultStep {
     private ReadablePipe source = null;
     private ReadablePipe manifest = null;
     private WritablePipe result = null;
-    private Hashtable<String, FileToZip> zipManifest = new Hashtable<String, FileToZip> ();
-    private Hashtable<String, XdmNode> srcManifest = new Hashtable<String, XdmNode> ();
+    private Map<String, FileToZip> zipManifest = new LinkedHashMap<String, FileToZip> ();
+    private Map<String, XdmNode> srcManifest = new LinkedHashMap<String, XdmNode> ();
 
     /** Creates a new instance of Unzip */
     public Zip(XProcRuntime runtime, XAtomicStep step) {
@@ -135,7 +141,13 @@ public class Zip extends DefaultStep {
             srcManifest.put(root.getBaseURI().toASCIIString(), doc);
         }
 
-        File zipFile = new File(zipFn);
+        File zipFile = null;
+        try {
+            zipFile = new File(new URI(zipFn));
+        } catch (URISyntaxException e) {
+            throw new XProcException(e);
+        }
+
         File zipParent = zipFile.getParentFile();
         File zipTemp = null;
         ZipFile inZip = null;
@@ -189,7 +201,7 @@ public class Zip extends DefaultStep {
         tree.startContent();
 
         try {
-            URL url = zipFile.toURL();
+            URL url = zipFile.toURI().toURL();
             URLConnection connection = url.openConnection();
             InputStream stream = connection.getInputStream();
 
@@ -234,7 +246,7 @@ public class Zip extends DefaultStep {
 
         tree.addEndElement();
         tree.endDocument();
-        result.write(stepContext, tree.getResult());
+        result.write(stepContext,tree.getResult());
     }
 
     private void parseManifest(XdmNode man) {
@@ -504,11 +516,9 @@ public class Zip extends DefaultStep {
                 req.addEndElement();
                 req.endDocument();
 
-                inputPipe.write(stepContext, req.getResult());
+                inputPipe.write(stepContext,req.getResult());
 
-                try {
-                    // Innovimax: run() replaced by gorun()
-                    // httpReq.run();
+                try {                    
                     httpReq.gorun();
                 } catch (SaxonApiException sae) {
                     throw new XProcException(sae);

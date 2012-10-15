@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,20 +21,21 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.functions;
 
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.runtime.XCompoundStep;
-import com.xmlcalabash.runtime.XStep;
+import net.sf.saxon.expr.XPathContext;
 import net.sf.saxon.lib.ExtensionFunctionCall;
 import net.sf.saxon.lib.ExtensionFunctionDefinition;
-import net.sf.saxon.om.StructuredQName;
 import net.sf.saxon.om.SequenceIterator;
-import net.sf.saxon.tree.iter.SingletonIterator;
-import net.sf.saxon.value.SequenceType;
-import net.sf.saxon.value.AnyURIValue;
-import net.sf.saxon.expr.XPathContext;
+import net.sf.saxon.om.StructuredQName;
 import net.sf.saxon.trans.XPathException;
+import net.sf.saxon.tree.iter.SingletonIterator;
+import net.sf.saxon.value.AnyURIValue;
+import net.sf.saxon.value.SequenceType;
+
 import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.runtime.XCompoundStep;
+import com.xmlcalabash.runtime.XStep;
 
 
 //
@@ -58,16 +59,26 @@ import com.xmlcalabash.core.XProcRuntime;
 /**
  * Implementation of the exf:cwd() function
  */
+
 public class Cwd extends ExtensionFunctionDefinition {
     private static StructuredQName funcname = new StructuredQName("exf", XProcConstants.NS_EXPROC_FUNCTIONS,"cwd");
-    private XProcRuntime runtime = null;
+    private ThreadLocal<XProcRuntime> tl_runtime = new ThreadLocal<XProcRuntime>() {
+        protected synchronized XProcRuntime initialValue() {
+            return null;
+        }
+    };
+    
+    private XProcRuntime runtime = null; // Innovimax: new property    
 
     protected Cwd() {
         // you can't call this one
     }
 
+    // Innovimax: modified constructor
     public Cwd(XProcRuntime runtime) {
-        this.runtime = runtime;
+        // Innovimax: desactivate ThreadLocal 
+        //tl_runtime.set(runtime);
+        this.runtime = runtime; 
     }
 
     public StructuredQName getFunctionQName() {
@@ -93,13 +104,17 @@ public class Cwd extends ExtensionFunctionDefinition {
     public ExtensionFunctionCall makeCallExpression() {
         return new CwdCall();
     }
-
+    
     private class CwdCall extends ExtensionFunctionCall {
+        // Innovimax: modified function      
         public SequenceIterator call(SequenceIterator[] arguments, XPathContext context) throws XPathException {
-            
+
+            // Innovimax: desactivate ThreadLocal
+            //XProcRuntime runtime = tl_runtime.get();    
             XStep step = runtime.getXProcData().getStep();
             // FIXME: this can't be the best way to do this...
-            if (!(step instanceof XCompoundStep)) {
+            // step == null in use-when
+            if (step != null && !(step instanceof XCompoundStep)) {
                 throw XProcException.dynamicError(23);
             }
 

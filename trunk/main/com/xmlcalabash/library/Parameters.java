@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -24,20 +24,25 @@ package com.xmlcalabash.library;
 
 import java.util.Hashtable;
 
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XdmAtomicValue;
+import net.sf.saxon.s9api.XdmItem;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.s9api.XdmSequenceIterator;
+import net.sf.saxon.s9api.XdmValue;
+
 import com.xmlcalabash.core.XProcConstants;
 import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.util.TreeWriter;
-import com.xmlcalabash.model.RuntimeValue;
 import com.xmlcalabash.io.WritablePipe;
-import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.QName;
-import net.sf.saxon.s9api.XdmValue;
-import net.sf.saxon.s9api.XdmItem;
-import net.sf.saxon.s9api.XdmAtomicValue;
-import net.sf.saxon.s9api.XdmSequenceIterator;
-import net.sf.saxon.s9api.XdmNode;
+import com.xmlcalabash.model.RuntimeValue;
 import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.TreeWriter;
 
+/**
+ *
+ * @author ndw
+ */
 public class Parameters extends DefaultStep {
     private static final QName c_param_set = new QName("c", XProcConstants.NS_XPROC_STEP, "param-set");
     private static final QName c_param = new QName("c", XProcConstants.NS_XPROC_STEP, "param");
@@ -141,7 +146,7 @@ public class Parameters extends DefaultStep {
         treeWriter.addEndElement();
         treeWriter.endDocument();
 
-        result.write(stepContext, treeWriter.getResult());
+        result.write(stepContext,treeWriter.getResult());
     }
 }
 

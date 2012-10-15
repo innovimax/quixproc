@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -19,21 +19,24 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
-
 package com.xmlcalabash.library;
 
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.model.RuntimeValue;
-import com.xmlcalabash.util.TreeWriter;
+import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.QName;
 
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.model.RuntimeValue;
 import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.TreeWriter;
 
+/**
+ *
+ * @author ndw
+ */
 public class Pack extends DefaultStep {
     protected static final String logger = "org.xproc.library.identity";
     private static final QName _wrapper = new QName("wrapper");
@@ -67,6 +70,7 @@ public class Pack extends DefaultStep {
         result.resetWriter(stepContext);
     }
 
+    // Innovimax: modified function
     public void gorun() throws SaxonApiException {
         super.gorun();
 
@@ -111,11 +115,11 @@ public class Pack extends DefaultStep {
                 tree.addSubtree(adoc);
             }
             tree.endDocument();
-            result.write(stepContext, tree.getResult());
+            result.write(stepContext,tree.getResult());
         }
         
         // Innovimax: close pipe
-        result.close(stepContext);
+        result.close(stepContext);        
     }
 }
 

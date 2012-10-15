@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,30 +22,40 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.io;
 
-import net.sf.saxon.s9api.*;
-
-import java.util.Iterator;
-import java.util.logging.Logger;
-
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.model.NamespaceBinding;
-import com.xmlcalabash.model.Step;
-import com.xmlcalabash.util.S9apiUtils;
-
-
 import innovimax.quixproc.codex.util.PipedDocument;
 import innovimax.quixproc.codex.util.StepContext;
 import innovimax.quixproc.codex.util.shared.ChannelReader;
 import innovimax.quixproc.util.shared.ChannelInit;
 import innovimax.quixproc.util.shared.ChannelPosition;
 
-/*
+import java.util.Iterator;
+
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XPathCompiler;
+import net.sf.saxon.s9api.XPathExecutable;
+import net.sf.saxon.s9api.XPathSelector;
+import net.sf.saxon.s9api.XdmDestination;
+import net.sf.saxon.s9api.XdmItem;
+import net.sf.saxon.s9api.XdmNode;
+
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.model.NamespaceBinding;
+import com.xmlcalabash.model.Step;
+import com.xmlcalabash.util.S9apiUtils;
+// Innovimax: new import  
+// Innovimax: new import  
+// Innovimax: new import  
+// Innovimax: new import  
+// Innovimax: new import  
+
+/**
  *
  * Ideally, I'd like this code to perform the selections in a lazy fashion, but that's
  * hard because it has to be possible to answer questions about how many documents
  * will be returned. So for now, I'm just doing it all up front.
  *
+ * @author ndw
  */
 public class Select implements ReadablePipe {
     private ReadablePipe source = null;
@@ -53,9 +63,9 @@ public class Select implements ReadablePipe {
     private XdmNode context = null;
     private DocumentSequence documents = null;
     private XPathSelector selector = null;
-    private XProcRuntime runtime = null;
-    private Step reader = null;    
-
+    private XProcRuntime runtime = null;    
+    private Step reader = null;
+    
     /** Creates a new instance of Select */
     public Select(XProcRuntime runtime, ReadablePipe readFrom, String xpathExpr, XdmNode xpathContext) {
         source = readFrom;
@@ -68,10 +78,10 @@ public class Select implements ReadablePipe {
     public void canReadSequence(boolean sequence) {
         // nop; always true
     }
-    
-    public DocumentSequence documents() {
-        return documents;
-    }    
+
+    public boolean readSequence() {
+        return true;
+    }
     
     //*************************************************************************
     //*************************************************************************        
@@ -127,6 +137,12 @@ public class Select implements ReadablePipe {
         initialize(newContext);
         return documents.size(newContext.curChannel);
     }    
+    
+    // Innovimax: new function
+    public DocumentSequence documents(StepContext stepContext) {
+        initialize(stepContext);
+        return documents;
+    }      
 
     // Innovimax: new function
     public XdmNode read(StepContext stepContext) throws SaxonApiException {         
@@ -157,16 +173,22 @@ public class Select implements ReadablePipe {
         }
 
         return doc;
-    }      
+    } 
+    
+    // Innovimax: new function
+    public String sequenceInfos() {        
+        return documents.toString();
+    }          
     
     // Innovimax: new function
     private void readSource(StepContext stepContext) {
         runtime.getTracer().debug(null,stepContext,-1,this,null,"    SELC > LOADING...");  
               
-        c_init.close(stepContext.curChannel);
+        c_init.close(stepContext.curChannel);              
         try {
             NamespaceBinding bindings = new NamespaceBinding(runtime,context);
             XPathCompiler xcomp = runtime.getProcessor().newXPathCompiler();
+            xcomp.setBaseURI(context.getBaseURI());
             for (String prefix : bindings.getNamespaceBindings().keySet()) {
                 xcomp.declareNamespace(prefix, bindings.getNamespaceBindings().get(prefix));
             }
@@ -216,7 +238,7 @@ public class Select implements ReadablePipe {
         
         // Innovimax : close documents
         documents.close(stepContext.curChannel);
-        runtime.getTracer().debug(null,stepContext,-1,this,null,"    SELC > LOADED");  
+        runtime.getTracer().debug(null,stepContext,-1,this,null,"    SELC > LOADED");          
     }   
     
     //*************************************************************************
@@ -226,16 +248,17 @@ public class Select implements ReadablePipe {
     //*************************************************************************
     //*************************************************************************
     //*************************************************************************  
-/*        
+/*    
     private boolean initialized = false;
     private int docindex = 0;    
-    private Logger logger = Logger.getLogger(this.getClass().getName());
+    private Logger logger = Logger.getLogger(this.getClass().getName());        
     
     private void readSource() {
         initialized = true;
         try {
             NamespaceBinding bindings = new NamespaceBinding(runtime,context);
             XPathCompiler xcomp = runtime.getProcessor().newXPathCompiler();
+            xcomp.setBaseURI(context.getBaseURI());
             for (String prefix : bindings.getNamespaceBindings().keySet()) {
                 xcomp.declareNamespace(prefix, bindings.getNamespaceBindings().get(prefix));
             }
@@ -304,6 +327,10 @@ public class Select implements ReadablePipe {
             readSource();
         }
         return documents.size();
+    }
+
+    public DocumentSequence documents() {
+        return documents;
     }
 
     public void setReader(Step step) {

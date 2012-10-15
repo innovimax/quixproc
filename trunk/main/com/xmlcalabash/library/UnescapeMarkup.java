@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -24,16 +24,14 @@ package com.xmlcalabash.library;
 
 import java.io.StringReader;
 import java.io.UnsupportedEncodingException;
+import java.util.Iterator;
 
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.util.HttpUtils;
-import com.xmlcalabash.util.JSONtoXML;
-import com.xmlcalabash.util.TreeWriter;
-import com.xmlcalabash.util.Base64;
-import com.xmlcalabash.util.S9apiUtils;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcException;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.sax.SAXSource;
+
+import net.sf.saxon.om.FingerprintedQName;
+import net.sf.saxon.om.NamespaceBinding;
+import net.sf.saxon.om.NodeInfo;
 import net.sf.saxon.s9api.Axis;
 import net.sf.saxon.s9api.DocumentBuilder;
 import net.sf.saxon.s9api.QName;
@@ -41,17 +39,30 @@ import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
 import net.sf.saxon.s9api.XdmNodeKind;
 import net.sf.saxon.s9api.XdmSequenceIterator;
-import net.sf.saxon.tree.iter.NamespaceIterator;
-import org.json.JSONTokener;
-import org.xml.sax.InputSource;
+import net.sf.saxon.tree.util.NamespaceIterator;
+import nu.validator.htmlparser.common.XmlViolationPolicy;
+import nu.validator.htmlparser.dom.HtmlDocumentBuilder;
+
 import org.ccil.cowan.tagsoup.Parser;
-import net.sf.saxon.om.NodeInfo;
-import net.sf.saxon.om.NamePool;
+import org.json.JSONTokener;
+import org.w3c.dom.Document;
+import org.xml.sax.InputSource;
 
-import javax.xml.transform.sax.SAXSource;
-
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.Base64;
+import com.xmlcalabash.util.HttpUtils;
+import com.xmlcalabash.util.JSONtoXML;
+import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.TreeWriter;
 
+/**
+ *
+ * @author ndw
+ */
 public class UnescapeMarkup extends DefaultStep {
     private static final QName _namespace = new QName("namespace");
     private static final QName _content_type = new QName("content-type");
@@ -132,15 +143,20 @@ public class UnescapeMarkup extends DefaultStep {
         tree.startContent();
 
         if ("text/html".equals(contentType)) {
-            XdmNode tagDoc = tagSoup(escapedContent);
+            XdmNode tagDoc = null;
+            if ("tagsoup".equals(runtime.htmlParser())) {
+                tagDoc = tagSoup(escapedContent);
+            } else {
+                tagDoc = parseHTML(escapedContent);
+            }
             if (namespace == null) {
                 tree.addSubtree(tagDoc);
             } else {
                 remapDefaultNamespace(tree, tagDoc);
             }
-        } else if ("application/json".equals(contentType)) {
+        } else if ("application/json".equals(contentType) || "text/json".equals(contentType)) {
             JSONTokener jt = new JSONTokener(escapedContent);
-            XdmNode jsonDoc = JSONtoXML.convert(runtime.getProcessor(), jt);
+            XdmNode jsonDoc = JSONtoXML.convert(runtime.getProcessor(), jt, runtime.jsonFlavor());
             tree.addSubtree(jsonDoc);
         } else if (!"application/xml".equals(contentType)) {
             throw XProcException.stepError(51);
@@ -149,23 +165,12 @@ public class UnescapeMarkup extends DefaultStep {
             escapedContent = "<wrapper>" + escapedContent + "</wrapper>";
 
             StringReader sr = new StringReader(escapedContent);
-            InputSource isource = new InputSource(sr);
-            SAXSource source = new SAXSource(isource);
-            DocumentBuilder builder = runtime.getProcessor().newDocumentBuilder();
-            builder.setDTDValidation(false);
 
-            XdmNode unesc = builder.build(source);
-            /*
-            if (namespace == null) {
-                XdmSequenceIterator unesciter = unesc.axisIterator(Axis.CHILD);
-                while (unesciter.hasNext()) {
-                    XdmNode unescnode = (XdmNode) unesciter.next();
-                    tree.addSubtree(unescnode);
-                }
-            } else {
-                remapDefaultNamespace(tree, unesc);
-            }
-            */
+            // Make sure the nodes in the unescapedContent get the right base URI
+            InputSource is = new InputSource(sr);
+            is.setSystemId(doc.getBaseURI().toASCIIString());
+
+            XdmNode unesc = runtime.parse(is);
 
             // Now ignore the wrapper that we added...
             XdmNode dummyWrapper = S9apiUtils.getDocumentElement(unesc);
@@ -182,29 +187,30 @@ public class UnescapeMarkup extends DefaultStep {
 
         tree.addEndElement();
         tree.endDocument();
-        result.write(stepContext, tree.getResult());
+        result.write(stepContext,tree.getResult());
     }
 
     private void remapDefaultNamespace(TreeWriter tree, XdmNode unescnode) {
         if (unescnode.getNodeKind() == XdmNodeKind.ELEMENT) {
             NodeInfo inode = unescnode.getUnderlyingNode();
-            NamePool pool = inode.getNamePool();
-            int inscopeNS[] = NamespaceIterator.getInScopeNamespaceCodes(inode);
-
+            int nscount = 0;
+                    Iterator<NamespaceBinding> nsiter = NamespaceIterator.iterateNamespaces(inode);
+                    while (nsiter.hasNext()) {
+                        nscount++;
+                        nsiter.next();
+                    }
+                  
             boolean replaced = false;
-            int newNS[] = null;
-            if (inscopeNS.length > 0) {
-                newNS = new int[inscopeNS.length+1];
-                for (int pos = 0; pos < inscopeNS.length; pos++) {
-                    int ns = inscopeNS[pos];
-                    String pfx = pool.getPrefixFromNamespaceCode(ns);
-                    //String uri = pool.getURIFromNamespaceCode(ns);
-
+            NamespaceBinding newNS[] = null;
+                    if (nscount > 0) {
+                        NamespaceBinding inscopeNS[] = new NamespaceBinding[nscount];
+                        newNS = new NamespaceBinding[nscount+1];
+                       for (int pos = 0; pos < inscopeNS.length; pos++) {
+                         NamespaceBinding ns = inscopeNS[pos];
+                         String pfx = ns.getPrefix();
+                     
                     if ("".equals(pfx)) {
-                        int newns = pool.getNamespaceCode(pfx,namespace);
-                        if (newns < 0) {
-                            newns = pool.allocateNamespaceCode(pfx,namespace);
-                        }
+                      NamespaceBinding newns = new NamespaceBinding(pfx, namespace);
                         newNS[pos] = newns;
                         replaced = true;
                     } else {
@@ -212,16 +218,14 @@ public class UnescapeMarkup extends DefaultStep {
                     }
                 }
                 if (!replaced) {
-                    int newns = pool.getNamespaceCode("",namespace);
-                    if (newns < 0) {
-                        newns = pool.allocateNamespaceCode("",namespace);
-                    }
+                  NamespaceBinding newns = new NamespaceBinding("",namespace);
                     newNS[newNS.length-1] = newns;
                 }
             }
 
             // Careful, we're messing with the namespace bindings
             // Make sure the nameCode is right...
+            /* Not sure what to do here in 9.4. Nothing?
             int nameCode = inode.getNameCode();
             int typeCode = inode.getTypeAnnotation() & NamePool.FP_MASK;
             String pfx = pool.getPrefix(nameCode);
@@ -230,9 +234,10 @@ public class UnescapeMarkup extends DefaultStep {
             if ("".equals(pfx) && !namespace.equals(uri)) {
                 nameCode = pool.allocate(pfx,namespace,unescnode.getNodeName().getLocalName());
             }
-
-            tree.addStartElement(nameCode, typeCode, newNS);
-
+            */
+                    FingerprintedQName newName = new FingerprintedQName("", namespace, inode.getLocalPart());
+                            tree.addStartElement(newName, inode.getSchemaType(), newNS);
+                
             XdmSequenceIterator iter = unescnode.axisIterator(Axis.ATTRIBUTE);
             while (iter.hasNext()) {
                 XdmNode child = (XdmNode) iter.next();
@@ -277,10 +282,25 @@ public class UnescapeMarkup extends DefaultStep {
         StringReader inputStream = new StringReader(text);
         InputSource source = new InputSource(inputStream);
         Parser parser = new Parser();
+        parser.setEntityResolver(runtime.getResolver());
         SAXSource saxSource = new SAXSource(parser, source);
         DocumentBuilder builder = runtime.getProcessor().newDocumentBuilder();
         try {
             XdmNode doc = builder.build(saxSource);
+            return doc;
+        } catch (Exception e) {
+            throw new XProcException(e);
+        }
+    }
+
+    private XdmNode parseHTML(String text) {
+        HtmlDocumentBuilder htmlBuilder = new HtmlDocumentBuilder(XmlViolationPolicy.ALTER_INFOSET);
+        htmlBuilder.setEntityResolver(runtime.getResolver());
+        try {
+            InputSource src = new InputSource(new StringReader(text));
+            Document html = htmlBuilder.parse(src);
+            DocumentBuilder builder = runtime.getProcessor().newDocumentBuilder();
+            XdmNode doc = builder.build(new DOMSource(html));
             return doc;
         } catch (Exception e) {
             throw new XProcException(e);

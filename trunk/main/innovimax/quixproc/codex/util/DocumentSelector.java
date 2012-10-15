@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,10 +22,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 package innovimax.quixproc.codex.util;
 
 import innovimax.quixproc.datamodel.MatchEvent;
-import innovimax.quixproc.datamodel.QuixEvent;
 import innovimax.quixproc.util.MatchHandler;
-import innovimax.quixproc.util.MatchQueue;
-import innovimax.quixproc.codex.util.MultiplexProcessor;
 
 import java.util.Hashtable;
 
@@ -68,7 +65,8 @@ public class DocumentSelector implements MatchHandler
   { 
     try {
       EventReader evr = new EventReader(stepContext, in, null);         
-      XPathMatcher xmatch = new XPathMatcher(runtime.getProcessor(), runtime.getQConfig().getQuiXPath(), evr, this, xpath, true);
+      // TODO we allow to use tree in this case, later we might be more clever
+      XPathMatcher xmatch = new XPathMatcher(runtime.getProcessor(), runtime.getQConfig().getQuiXPath(), evr, this, xpath, true, true);
       Thread t = new Thread(xmatch);                         
       t.start();              
     } 

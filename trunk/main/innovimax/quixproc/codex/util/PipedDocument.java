@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -23,8 +23,8 @@ package innovimax.quixproc.codex.util;
 
 import innovimax.quixproc.datamodel.DOMConverter;
 import innovimax.quixproc.datamodel.EventConverter;
-import innovimax.quixproc.datamodel.QuixEvent;
 import innovimax.quixproc.datamodel.IStream;
+import innovimax.quixproc.datamodel.QuixEvent;
 import innovimax.quixproc.datamodel.shared.IQueue;
 import innovimax.quixproc.datamodel.shared.ISimpleQueue;
 import innovimax.quixproc.datamodel.shared.SmartAppendQueue;
@@ -72,6 +72,7 @@ public class PipedDocument implements ISimpleQueue<QuixEvent>{
   private final static IQueue<QuixEvent> newQuixEventQueue(int readerCount) {
     // TODO moz V1 : put the one who works less good
     IQueue<QuixEvent> qeq = new SmartAppendQueue<QuixEvent>();
+    // IQueue<QuixEvent> qeq = new SimpleAppendQueue<QuixEvent>();
     qeq.setReaderCount(readerCount);
     return qeq;
   }
@@ -126,13 +127,14 @@ public class PipedDocument implements ISimpleQueue<QuixEvent>{
   }
 
   public void append(QuixEvent event) {
-    // System.out.println("PipedDocument.addEvent : "+event);
+    //System.out.println("PipedDocument["+this+"].addEvent : "+event);
     events.append(event);
+    Thread.yield();
   }
 
   public void close() {
-    closed = true;
     events.close();
+    closed = true;    
   }
 
   public boolean isClosed() {

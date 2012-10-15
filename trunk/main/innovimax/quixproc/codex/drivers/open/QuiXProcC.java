@@ -1,6 +1,6 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
+Copyright (C) 2011-2012 Innovimax
 All rights reserved.
 
 This program is free software; you can redistribute it and/or
@@ -29,8 +29,6 @@ import innovimax.quixproc.codex.util.open.Tracer;
 import innovimax.quixproc.codex.util.open.Waiter;
 
 import java.io.File;
-
-import com.quixpath.interfaces.IQuiXPath;
 
 public class QuiXProcC extends QuiXProc
 {  

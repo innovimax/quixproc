@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,7 +21,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.functions;
 
-import com.xmlcalabash.runtime.XCompoundStep;
 import net.sf.saxon.expr.Expression;
 import net.sf.saxon.expr.StaticContext;
 import net.sf.saxon.expr.XPathContext;
@@ -30,17 +29,17 @@ import net.sf.saxon.lib.ExtensionFunctionDefinition;
 import net.sf.saxon.om.Item;
 import net.sf.saxon.om.SequenceIterator;
 import net.sf.saxon.om.StructuredQName;
+import net.sf.saxon.s9api.QName;
 import net.sf.saxon.trans.XPathException;
 import net.sf.saxon.tree.iter.SingletonIterator;
 import net.sf.saxon.value.BooleanValue;
 import net.sf.saxon.value.SequenceType;
-import net.sf.saxon.s9api.QName;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.runtime.XStep;
 
-import java.util.Hashtable;
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.runtime.XCompoundStep;
+import com.xmlcalabash.runtime.XStep;
 
 //
 // The contents of this file are subject to the Mozilla Public License Version 1.0 (the "License");
@@ -65,15 +64,24 @@ import java.util.Hashtable;
  */
 
 public class ValueAvailable extends ExtensionFunctionDefinition {
-    private XProcRuntime runtime;
     private static StructuredQName funcname = new StructuredQName("p", XProcConstants.NS_XPROC, "value-available");
+    private ThreadLocal<XProcRuntime> tl_runtime = new ThreadLocal<XProcRuntime>() {
+        protected synchronized XProcRuntime initialValue() {
+            return null;
+        }
+    };
+    
+    private XProcRuntime runtime = null; // Innovimax: new property    
 
     protected ValueAvailable() {
         // you can't call this one
     }
 
+    // Innovimax: modified constructor
     public ValueAvailable(XProcRuntime runtime) {
-        this.runtime = runtime;
+        // Innovimax: desactivate ThreadLocal 
+        //tl_runtime.set(runtime);
+        this.runtime = runtime; 
     }
 
     public StructuredQName getFunctionQName() {
@@ -107,15 +115,20 @@ public class ValueAvailable extends ExtensionFunctionDefinition {
             staticContext = context;
         }
 
+        // Innovimax: modified function
         public SequenceIterator call(SequenceIterator[] arguments, XPathContext context) throws XPathException {
-            StructuredQName sVarName = null;
-            
+          
             // Innovimax: desactivated function
             if (true) throw new RuntimeException("ValueAvailable is desactivated");
-                        
+                      
+            StructuredQName sVarName = null;
+
+            // Innovimax: desactivate ThreadLocal
+            //XProcRuntime runtime = tl_runtime.get();    
             XStep step = runtime.getXProcData().getStep();
             // FIXME: this can't be the best way to do this...
-            if (!(step instanceof XCompoundStep)) {
+            // step == null in use-when
+            if (step != null && !(step instanceof XCompoundStep)) {
                 throw XProcException.dynamicError(23);
             }
 
@@ -142,8 +155,7 @@ public class ValueAvailable extends ExtensionFunctionDefinition {
             }
 
             boolean value = false;
-            QName varName = new QName(sVarName.getNamespaceURI(), sVarName.getLocalName());
-
+            QName varName = new QName(sVarName.getURI(), sVarName.getLocalPart());
             value = step.hasInScopeVariableBinding(varName);
 
             if (!value) {

@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,21 +22,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.library;
 
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.model.RuntimeValue;
-import com.xmlcalabash.runtime.XAtomicStep;
-import com.xmlcalabash.util.TreeWriter;
-import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.XdmAtomicValue;
-import net.sf.saxon.s9api.XdmItem;
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.XdmSequenceIterator;
-import net.sf.saxon.s9api.XdmValue;
 
-import java.util.Hashtable;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.runtime.XAtomicStep;
 
 /**
  *

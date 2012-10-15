@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,53 +22,61 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.drivers;
 
-import java.io.IOException;
-import java.io.File;
+import innovimax.quixproc.codex.util.QConfig;
+import innovimax.quixproc.codex.util.StepContext;
+
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.*;
-
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.core.XProcConfiguration;
-import com.xmlcalabash.model.RuntimeValue;
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.util.S9apiUtils;
-import com.xmlcalabash.util.RelevantNodes;
-import org.xml.sax.InputSource;
-import net.sf.saxon.s9api.QName;
-import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.DocumentBuilder;
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.XdmSequenceIterator;
-import net.sf.saxon.s9api.Axis;
-import net.sf.saxon.s9api.XdmNodeKind;
-import net.sf.saxon.s9api.XPathCompiler;
-import net.sf.saxon.s9api.XPathExecutable;
-import net.sf.saxon.s9api.XPathSelector;
-import net.sf.saxon.s9api.XdmItem;
-import net.sf.saxon.s9api.XdmAtomicValue;
-import net.sf.saxon.s9api.XdmDestination;
-import net.sf.saxon.s9api.XdmValue;
-import net.sf.saxon.s9api.Processor;
-import net.sf.saxon.s9api.XQueryCompiler;
-import net.sf.saxon.s9api.XQueryExecutable;
-import net.sf.saxon.s9api.XQueryEvaluator;
-import net.sf.saxon.s9api.Serializer;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
+import java.util.HashSet;
+import java.util.Hashtable;
+import java.util.Iterator;
+import java.util.Set;
+import java.util.Vector;
 
 import javax.xml.transform.sax.SAXSource;
 
+import net.sf.saxon.s9api.Axis;
+import net.sf.saxon.s9api.DocumentBuilder;
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.Serializer;
+import net.sf.saxon.s9api.XPathCompiler;
+import net.sf.saxon.s9api.XPathExecutable;
+import net.sf.saxon.s9api.XPathSelector;
+import net.sf.saxon.s9api.XdmAtomicValue;
+import net.sf.saxon.s9api.XdmDestination;
+import net.sf.saxon.s9api.XdmItem;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.s9api.XdmNodeKind;
+import net.sf.saxon.s9api.XdmSequenceIterator;
+import net.sf.saxon.s9api.XdmValue;
+
+import org.xml.sax.InputSource;
+import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.XMLReaderFactory;
+
+import com.xmlcalabash.core.XProcConfiguration;
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.model.RuntimeValue;
 import com.xmlcalabash.runtime.XPipeline;
+import com.xmlcalabash.util.RelevantNodes;
+import com.xmlcalabash.util.S9apiUtils;
+// Innovimax: new import
+// Innovimax: new import
 
-import innovimax.quixproc.codex.util.QConfig;
-import innovimax.quixproc.codex.util.Tracing;
-import innovimax.quixproc.codex.util.Waiting;
-import innovimax.quixproc.codex.util.Waiting;
-import innovimax.quixproc.codex.util.StepContext;
-
+/**
+ *
+ * @author ndw
+ */
 public class RunTestReport {
     public static final QName _path = new QName("path");
     public static final QName _port = new QName("port");
@@ -96,16 +104,16 @@ public class RunTestReport {
     private XProcRuntime runtime = null;
 
     /** Creates a new instance of RunTest */
-    private RunTestReport() {
+    public RunTestReport() {
     }
 
     // Innovimax: desactivated main
     //public static void main(String[] args) throws SaxonApiException, IOException, URISyntaxException {    
     // Innovimax: new function
-    public static void run(String[] args, QConfig qconfig) throws SaxonApiException, IOException, URISyntaxException {    
-        String usage = "RunTests [-D] [-d directory] test.xml";
+    public static void run(String[] args, QConfig qconfig) throws SaxonApiException, IOException, URISyntaxException {      
+        String usage = "RunTests [-D] [-d directory] [-a] test.xml";
         Vector<String> tests = new Vector<String> ();
-                
+
         for (int pos = 0; pos < args.length; pos++) {
             if ("-D".equals(args[pos])) {
                 debug = true;
@@ -136,7 +144,7 @@ public class RunTestReport {
 
                 if (count == 0) {
                     System.err.println("No tests found in " + dirname);
-                }                 
+                }
             } else {
                 System.err.println("Test: " + args[pos]);
                 tests.add(args[pos]);
@@ -148,21 +156,20 @@ public class RunTestReport {
             System.exit(1);
         }
 
-        RunTestReport test = new RunTestReport();                
+        RunTestReport test = new RunTestReport();
         // Innovimax: qconfig
         //test.runTests();        
         test.runTests(tests, qconfig); 
         // Innovimax: to killing threads
-        System.exit(0);        
+        System.exit(0);    
     }
 
     // Innovimax: modified function
     //public void runTests(Vector<String> tests) {
     public void runTests(Vector<String> tests, QConfig qconfig) {
         // We create this runtime for startReport(), I know it never actually gets used...
-        XProcConfiguration config = new XProcConfiguration(schemaAware);
+        XProcConfiguration config = new XProcConfiguration("ee", schemaAware);
         runtime = new XProcRuntime(config);
-        runtime.setPhoneHome(false);
 
         startReport();
 
@@ -180,11 +187,11 @@ public class RunTestReport {
     public void run(String testfile, QConfig qconfig) {
         Vector<TestResult> results = new Vector<TestResult> ();
 
-        XProcConfiguration config = new XProcConfiguration(schemaAware);
+        XProcConfiguration config = new XProcConfiguration("ee", schemaAware);
         runtime = new XProcRuntime(config);
         runtime.getConfiguration().debug = debug;
         // Innovimax: set qconfig
-        runtime.setQConfig(qconfig);                 
+        runtime.setQConfig(qconfig);          
 
         XdmNode doc, root;
         try {
@@ -194,20 +201,20 @@ public class RunTestReport {
             if (instream == null) {
                 throw new UnsupportedOperationException("Failed to load prettyprint stylesheet from resources.");
             }
-            SAXSource ppsource = new SAXSource(new InputSource(instream));
-            DocumentBuilder ppbuilder = runtime.getProcessor().newDocumentBuilder();
-            ppbuilder.setLineNumbering(true);
-            prettyPrint = S9apiUtils.getDocumentElement(ppbuilder.build(ppsource));
+            XdmNode ppd = runtime.parse(new InputSource(instream));
+            prettyPrint = S9apiUtils.getDocumentElement(ppd);
 
             InputSource isource = new InputSource(testfile);
-            SAXSource source = new SAXSource(isource);
+            XMLReader reader = XMLReaderFactory.createXMLReader();
+            reader.setEntityResolver(runtime.getResolver());
+            SAXSource source = new SAXSource(reader,isource);
             DocumentBuilder builder = runtime.getProcessor().newDocumentBuilder();
             builder.setLineNumbering(true);
             builder.setDTDValidation(false);
 
             doc = builder.build(source);
             root = S9apiUtils.getDocumentElement(doc);
-        } catch (SaxonApiException sae) {
+        } catch (Exception sae) {
             TestResult result = new TestResult(testfile);
             result.catchException(sae);
             results.add(result);
@@ -243,22 +250,24 @@ public class RunTestReport {
         }
     }
 
+    // Innovimax: modified function
     public TestResult runTest(XdmNode testNode) {
         TestResult result;
 
         if (testNode.getAttributeValue(_href) != null) {
             URI turi = testNode.getBaseURI().resolve(testNode.getAttributeValue(_href));
-            InputSource isource = new InputSource(turi.toASCIIString());
-            SAXSource source = new SAXSource(isource);
-            DocumentBuilder builder = runtime.getProcessor().newDocumentBuilder();
-            builder.setLineNumbering(true);
-            builder.setDTDValidation(false);
-
             try {
+                InputSource isource = new InputSource(turi.toASCIIString());
+                XMLReader reader = XMLReaderFactory.createXMLReader();
+                reader.setEntityResolver(runtime.getResolver());
+                SAXSource source = new SAXSource(reader, isource);
+                DocumentBuilder builder = runtime.getProcessor().newDocumentBuilder();
+                builder.setLineNumbering(true);
+                builder.setDTDValidation(false);
                 XdmNode doc = builder.build(source);
                 XdmNode root = S9apiUtils.getDocumentElement(doc);
                 result = runTest(root);
-            } catch (SaxonApiException sae) {
+            } catch (Exception sae) {
                 result = new TestResult(turi.toASCIIString());
                 result.catchException(sae);
             }
@@ -304,12 +313,12 @@ public class RunTestReport {
         QConfig qconfig = runtime.getQConfig();                      
         runtime = new XProcRuntime(runtime.getConfiguration());             
         runtime.setQConfig(qconfig);                
-        StepContext stepContext = new StepContext();       
+        StepContext stepContext = new StepContext();     
 
         if (t.error != null) {
             result.fail(t.error);
             return result;
-        }                
+        }
 
         if (t.comparepipeline != null) {
             XProcPipeline compare = t.comparepipeline;
@@ -441,11 +450,11 @@ public class RunTestReport {
                 }
             }
         } catch (SaxonApiException sae) {
-            result.fail(sae, "Error comparing results: this shouldn't happen");        
+            result.fail(sae, "Error comparing results: this shouldn't happen");
         } catch (Exception e) {
             // Innovimax: catch all exception            
             result.fail(e, "Error comparing results: this shouldn't happen");            
-        }        
+        }  
 
         if (pipeoutputs.size() == 0) {
             if (expects.size() == 0) {
@@ -456,32 +465,35 @@ public class RunTestReport {
         return result;
     }
 
+// Innovimax: modified function
 private Hashtable<String,ReadablePipe> runPipe(XdmNode pipeline,
                                                Hashtable<String, Vector<XdmNode>> inputs,
                                                Hashtable<String, Vector<XdmNode>> outputs,
                                                Hashtable<QName, String> parameters,
-                                               Hashtable<QName, String> options) throws SaxonApiException {    
-    XPipeline xpipeline = runtime.use(pipeline);    
-    if (inputs != null) {        
-        for (String port : inputs.keySet()) {            
+                                               Hashtable<QName, String> options) throws SaxonApiException {
+
+    XPipeline xpipeline = runtime.use(pipeline);
+
+    if (inputs != null) {
+        for (String port : inputs.keySet()) {
             if (!xpipeline.getInputs().contains(port)) {
                 throw new UnsupportedOperationException("Error: Test sets input port that doesn't exist: " + port);
             }
-            xpipeline.clearInputs(port);            
-            for (XdmNode node : inputs.get(port)) {                     
-                xpipeline.writeTo(port, node);                
-            }            
+            xpipeline.clearInputs(port);
+            for (XdmNode node : inputs.get(port)) {
+                xpipeline.writeTo(port, node);
+            }
             // Innovimax: close pipe
-            xpipeline.closeWrittenPipe(port);                
-        }        
+            xpipeline.closeWrittenPipe(port);               
+        }
     }
-    
+
     if (parameters != null) {
         for (QName name : parameters.keySet()) {
             xpipeline.setParameter(name, new RuntimeValue(parameters.get(name)));
         }
     }
-        
+
     if (options != null) {
         for (QName name : options.keySet()) {
 
@@ -496,11 +508,11 @@ private Hashtable<String,ReadablePipe> runPipe(XdmNode pipeline,
             xpipeline.passOption(name, v);
         }
     }
-        
+
     try {
         // Innovimax: exec pipeline
         //xpipeline.run();            
-        xpipeline.exec();  
+        xpipeline.exec(); 
     } catch (XProcException e) {
         if (debug) {
             e.printStackTrace();
@@ -649,18 +661,6 @@ private Hashtable<String,ReadablePipe> runPipe(XdmNode pipeline,
 
     public String serializeAsXML(XdmNode node) {
         try {
-            Processor qtproc = runtime.getProcessor();
-            DocumentBuilder builder = qtproc.newDocumentBuilder();
-            try {
-                builder.setBaseURI(new URI("http://example.com/"));
-            } catch (URISyntaxException use) {
-                // won't happen
-            }
-            XQueryCompiler xqcomp = qtproc.newXQueryCompiler();
-            XQueryExecutable xqexec = xqcomp.compile(".");
-            XQueryEvaluator xqeval = xqexec.load();
-            xqeval.setContextItem(node);
-
             Serializer serializer = new Serializer();
 
             serializer.setOutputProperty(Serializer.Property.BYTE_ORDER_MARK, "no");
@@ -672,13 +672,10 @@ private Hashtable<String,ReadablePipe> runPipe(XdmNode pipeline,
             ByteArrayOutputStream os = new ByteArrayOutputStream();
             serializer.setOutputStream(os);
 
-            xqeval.setDestination(serializer);
-            xqeval.run();
-
+            S9apiUtils.serialize(runtime, node, serializer);
             String result = os.toString();
 
             return result;
-
         } catch (SaxonApiException sae) {
             sae.printStackTrace();
             return "";
@@ -732,7 +729,7 @@ private Hashtable<String,ReadablePipe> runPipe(XdmNode pipeline,
         }
 
         private void scan(XdmNode pipeline) throws SaxonApiException {
-            for (XdmNode node : new RelevantNodes(runtime, pipeline,Axis.CHILD)) {                
+            for (XdmNode node : new RelevantNodes(runtime, pipeline,Axis.CHILD)) {
                 if (t_title.equals(node.getNodeName())) {
                     title = node;
                     continue;
@@ -762,8 +759,9 @@ private Hashtable<String,ReadablePipe> runPipe(XdmNode pipeline,
             }
         }
 
+        // Innovimax: modified function
         private void scanio(XdmNode input) throws SaxonApiException {
-            String port = input.getAttributeValue(_port);            
+            String port = input.getAttributeValue(_port);
 
             if (port == null) {
                 throw new IllegalArgumentException("Each input and output must specify a port");
@@ -776,13 +774,13 @@ private Hashtable<String,ReadablePipe> runPipe(XdmNode pipeline,
             String href = input.getAttributeValue(_href);
             if (href != null) {
                 add(input, port, href);
-            } else { 
+            } else {
                 // Innovimax: empty input                
-                boolean empty = true;                
-                for (XdmNode node : new RelevantNodes(input,Axis.CHILD,false)) {                    
+                boolean empty = true;                  
+                for (XdmNode node : new RelevantNodes(input,Axis.CHILD,false)) {
                     if (node.getNodeKind() != XdmNodeKind.ELEMENT) {
                         continue;
-                    }                    
+                    }
 
                     if (t_document.equals(node.getNodeName())) {
                         href = node.getAttributeValue(_href);
@@ -800,7 +798,7 @@ private Hashtable<String,ReadablePipe> runPipe(XdmNode pipeline,
                             add(input, port, dest.getXdmNode());
                         }
                         // Innovimax: empty input                
-                        empty = false;
+                        empty = false;                        
                     } else {
                         // Make sure that we have a document
                         XdmDestination dest = new XdmDestination();
@@ -808,11 +806,11 @@ private Hashtable<String,ReadablePipe> runPipe(XdmNode pipeline,
                         XdmNode newNode = dest.getXdmNode();
                         add(input, port, dest.getXdmNode());
                         // Innovimax: empty input                
-                        empty = false;
+                        empty = false;                        
                     }
-                }                
+                }
                 // Innovimax: empty input                
-                if (empty) add(input, port, (XdmNode)null);                 
+                if (empty) add(input, port, (XdmNode)null);                   
             }
         }
 
@@ -875,14 +873,10 @@ private Hashtable<String,ReadablePipe> runPipe(XdmNode pipeline,
 
         private void add(XdmNode node, String port, String href) throws SaxonApiException {
             String rhref = node.getBaseURI().resolve(href).toASCIIString();
-            SAXSource source = new SAXSource(new InputSource(rhref));
-            DocumentBuilder builder = runtime.getProcessor().newDocumentBuilder();
-            XdmNode doc = builder.build(source);
-            //XdmNode root = S9apiUtils.getDocumentElement(doc);
-
-            add(node,port,doc);
+            add(node, port, runtime.parse(new InputSource(rhref)));
         }
 
+        // Innovimax: modified function
         private void add(XdmNode node, String port, XdmNode root) {
             String type = node.getNodeName().getLocalName();
             if ("input".equals(type)) {
@@ -975,7 +969,7 @@ private Hashtable<String,ReadablePipe> runPipe(XdmNode pipeline,
                             }
                         }
                     }
-                    node = S9apiUtils.removeNamespaces(runtime, node, prefixes);
+                    node = S9apiUtils.removeNamespaces(runtime, node, prefixes, true);
                     description.add(node);
                 }
             }

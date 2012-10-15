@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,21 +21,28 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.util;
 
-import net.sf.saxon.lib.CollectionURIResolver;
-import net.sf.saxon.trans.XPathException;
-import net.sf.saxon.expr.XPathContext;
-import net.sf.saxon.om.SequenceIterator;
-import net.sf.saxon.om.Item;
-import net.sf.saxon.s9api.XdmNode;
-
-import java.util.Vector;
-import java.util.logging.Logger;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Vector;
+import java.util.logging.Logger;
 
-import com.xmlcalabash.core.XProcRuntime;
+import net.sf.saxon.expr.XPathContext;
+import net.sf.saxon.lib.CollectionURIResolver;
+import net.sf.saxon.om.Item;
+import net.sf.saxon.om.SequenceIterator;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.trans.XPathException;
 import net.sf.saxon.tree.iter.ArrayIterator;
 
+import com.xmlcalabash.core.XProcRuntime;
+
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Nov 3, 2008
+ * Time: 5:44:12 PM
+ * To change this template use File | Settings | File Templates.
+ */
 public class CollectionResolver implements CollectionURIResolver {
     XProcRuntime runtime = null;
     Vector<XdmNode> docs = null;

@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,33 +21,45 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.runtime;
 
+import innovimax.quixproc.codex.util.DocumentCollector;
+import innovimax.quixproc.codex.util.ErrorHandler;
+import innovimax.quixproc.codex.util.OptionsCalculator;
+import innovimax.quixproc.codex.util.ParameterCollector;
+import innovimax.quixproc.codex.util.VariablesCalculator;
+import innovimax.quixproc.codex.util.Waiting;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Hashtable;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+import java.util.Vector;
+
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XdmNode;
+
 import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.core.XProcData;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.model.DeclareStep;
 import com.xmlcalabash.model.Output;
 import com.xmlcalabash.model.RuntimeValue;
 import com.xmlcalabash.model.Serialization;
 import com.xmlcalabash.model.Step;
+import com.xmlcalabash.model.Variable;
 import com.xmlcalabash.util.TreeWriter;
-import net.sf.saxon.s9api.QName;
-import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.XdmNode;
 
-import java.util.*;
-import java.util.List; // Innovimax: new import
-import java.util.ArrayList; // Innovimax: new import
-
-import innovimax.quixproc.codex.util.DocumentCollector;
-import innovimax.quixproc.codex.util.ParameterCollector;
-import innovimax.quixproc.codex.util.OptionsCalculator;
-import innovimax.quixproc.codex.util.VariablesCalculator;
-import innovimax.quixproc.codex.util.ErrorHandler;
-import innovimax.quixproc.codex.util.Waiting;
-
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 10, 2008
+ * Time: 7:22:01 AM
+ * To change this template use File | Settings | File Templates.
+ */
 public class XPipeline extends XCompoundStep {
     private static final QName c_param_set = new QName("c", XProcConstants.NS_XPROC_STEP, "param-set");
     private static final QName c_param = new QName("c", XProcConstants.NS_XPROC_STEP, "param");
@@ -110,7 +122,7 @@ public class XPipeline extends XCompoundStep {
     public void writeTo(String port, XdmNode node) {
         WritablePipe pipe = outputs.get(port+"|");
         finest(step.getNode(), "writesTo " + pipe + " for " + port);
-        pipe.write(stepContext, node);
+        pipe.write(stepContext,node);
     }
 
     public Set<String> getOutputs() {
@@ -136,9 +148,8 @@ public class XPipeline extends XCompoundStep {
         return output.getSerialization();
     }
 
-    // Innovimax: replaced/modified by gorun()
-    //public void run() throws SaxonApiException {
-    public void gorun() throws SaxonApiException {        
+    // Innovimax: modified function    
+    public void gorun() throws SaxonApiException {
         QName infoName = XProcConstants.p_pipeline;
         /*
         if (!step.isAnonymous()) {
@@ -146,23 +157,22 @@ public class XPipeline extends XCompoundStep {
         }
         */
 
-        info(null, "Running " + infoName + " " + step.getName());
+        fine(null, "Running " + infoName + " " + step.getName());
         if (runtime.getAllowGeneralExpressions()) {
-            info(step.getNode(), "Running with the 'general-values' extension enabled.");
+            fine(step.getNode(), "Running with the 'general-values' extension enabled.");
         }
+
         // Innovimax: XProcData desactivated
         //XProcData data = runtime.getXProcData();
         //data.openFrame(this);
-        
+
         runtime.start(this);
-        try {            
+        try {
             doRun();
         } catch (XProcException ex) {
-            runtime.phoneHome(ex);
             runtime.error(ex);
             throw ex;
         } catch (SaxonApiException ex) {
-            runtime.phoneHome(ex);
             runtime.error(ex);
             throw ex;
         }
@@ -203,28 +213,28 @@ public class XPipeline extends XCompoundStep {
 
             tree.addEndElement();
             tree.endDocument();
-            
-            writeTo(port,tree.getResult());            
+
+            writeTo(port,tree.getResult());
         }
     }
 
     // Innovimax: modified function
-    private void doRun() throws SaxonApiException {        
+    private void doRun() throws SaxonApiException {
         // innovimax: statistics
-        if (startTotalMem==0) { 
-          startTotalMem = Runtime.getRuntime().totalMemory();  
-          startedMemory = Runtime.getRuntime().freeMemory();
+        if (startMemory==0) { 
+          startMemory = Runtime.getRuntime().freeMemory(); 
         }   
               
-        // Innovimax: collect inputs                
+        // Innovimax: collect inputs        
         /*for (String port : inputs.keySet()) {
             if (!port.startsWith("|")) {
                 String wport = port + "|";
                 WritablePipe pipe = outputs.get(wport);
+
                 for (ReadablePipe reader : inputs.get(port)) {
                     while (reader.moreDocuments(stepContext)) {
                         XdmNode doc = reader.read(stepContext);
-                        pipe.write(stepContext, doc);
+                        pipe.write(stepContext,doc);
                         finest(step.getNode(), "Pipeline input copy from " + reader + " to " + pipe);
                     }
                 }
@@ -246,8 +256,8 @@ public class XPipeline extends XCompoundStep {
                 closeMissingPipe(port);
             }
         }
-        checkErrors();
-        
+        checkErrors();        
+
         // collect parameters        
         //setupParameters();
         ParameterCollector parCollector = new ParameterCollector(runtime, this, inCollectors); 
@@ -260,9 +270,10 @@ public class XPipeline extends XCompoundStep {
         // so the order in which we calculate them doesn't matter. That will change if/when
         // there are such compound steps.
 
+        // Calculate all the options
         inScopeOptions = parent.getInScopeOptions();
         
-        // Innovimax: calculate all the options        
+        // Innovimax: calculate all the options            
         /*for (QName name : step.getOptions()) {
             Option option = step.getOption(name);
             RuntimeValue value = null;
@@ -272,47 +283,61 @@ public class XPipeline extends XCompoundStep {
                 if (option.getRequired() && option.getSelect() == null) {
                     throw XProcException.staticError(18, option.getNode(), "No value provided for required option \"" + option.getName() + "\"");
                 }
+
                 if (option.getSelect() == null) {
                     value = new RuntimeValue();
                 } else {
                     value = computeValue(option);
                 }
             }
+
             setOption(name, value);
             inScopeOptions.put(name, value);
-        }*/        
+        }*/
         OptionsCalculator ocalculator = new OptionsCalculator(runtime,this,step,inScopeOptions,optionsPassedIn);
         ocalculator.exec(errorHandler);        
         checkErrors();
 
-        // Innovimax: calculate all the variables   
+        // Innovimax: calculate all the variables          
         /*for (Variable var : step.getVariables()) {
             RuntimeValue value = computeValue(var);
             inScopeOptions.put(var.getName(), value);
         }*/
+        for (Variable variable : step.getVariables()) {                    
+            String select = variable.getSelect();
+            if (select == null) {  
+                throw XProcException.staticError(38, "The expression for $" + variable.getName() + " has no select attribute."); 
+            }
+        }        
         VariablesCalculator vcalculator = new VariablesCalculator(runtime, this, step, inScopeOptions);
         vcalculator.exec(errorHandler);        
-        checkErrors();
-        
-        for (XStep step : subpipeline) {            
+        checkErrors();        
+
+        for (XStep step : subpipeline) {
             // Innovimax: run each step in thread
-            //step.run();            
+            //step.gorun();            
             step.stepContext = stepContext;            
             Thread ts = new Thread(errorHandler, step);
             runtime.getTracer().debug(this,null,-1,null,null,"PIPELINE > RUN STEP THREAD ["+step.getName()+"]"); 
-            ts.start();                
-        }        
+            ts.start();   
+        }
         checkErrors();
 
-        // Innovimax: collect outputs     
+        // Innovimax: collect outputs         
         /*for (String port : inputs.keySet()) {
             if (port.startsWith("|")) {
                 String wport = port.substring(1);
                 WritablePipe pipe = outputs.get(wport);
                 for (ReadablePipe reader : inputs.get(port)) {
+                    // Check for the case where there are no documents, but a sequence is not allowed
+                    if (!reader.moreDocuments(stepContext) && !pipe.writeSequence()) {
+                        throw XProcException.dynamicError(7);
+                    }
+
+
                     while (reader.moreDocuments(stepContext)) {
                         XdmNode doc = reader.read(stepContext);
-                        pipe.write(stepContext, doc);
+                        pipe.write(stepContext,doc);
                         finest(step.getNode(), "Pipeline output copy from " + reader + " to " + pipe);
                     }
                 }
@@ -332,19 +357,20 @@ public class XPipeline extends XCompoundStep {
             }
         }          
         checkErrors();
-        
+                
         // Innovimax: waiting before close frame        
         Waiting waiter = runtime.newWaiterInstance(this,stepContext.curChannel,null,null,"PIPELINE > WAITING END OF STEPS..."); 
         while (subpipelineRunning() || collectorRunning(outCollectors)) {            
             checkErrors();
             waiter.check(true);
             // innovimax: statistics        
-            long mem = Runtime.getRuntime().totalMemory() - startTotalMem + startedMemory - Runtime.getRuntime().freeMemory();
-            if (mem>maximumMemory) { maximumMemory = mem; }              
+            long total = Runtime.getRuntime().totalMemory();
+            long free = Runtime.getRuntime().freeMemory();
+            if ((total-free)>maxMemory) { maxMemory = total-free; }           
             Thread.yield();
         }                                               
-        runtime.getTracer().debug(this,null,-1,null,null,"PIPELINE > ALL STEPS TERMINATED");         
-    }
+        runtime.getTracer().debug(this,null,-1,null,null,"PIPELINE > ALL STEPS TERMINATED");                    
+    }  
     
     //*************************************************************************
     //*************************************************************************        
@@ -354,12 +380,7 @@ public class XPipeline extends XCompoundStep {
     //*************************************************************************
     //*************************************************************************
     
-    private ErrorHandler errorHandler = null; // Innovimax: new property
-    
-    // innovimax: statistics
-    private static long startTotalMem = 0;  
-    private static long startedMemory = 0;
-    private static long maximumMemory = 0;     
+    private ErrorHandler errorHandler = null; // Innovimax: new property       
     
     // Innovimax: new function
     public void exec() {      
@@ -368,9 +389,9 @@ public class XPipeline extends XCompoundStep {
             errorHandler = new ErrorHandler("pipeline");            
             Thread.setDefaultUncaughtExceptionHandler(errorHandler);
             // activate xpath functions
-            XProcData data = runtime.getXProcData();
-            data.openFrame(this);            
-            // Innovimax: run pipeline            
+            //XProcData data = runtime.getXProcData();
+            //data.openFrame(this);            
+            // run pipeline            
             runtime.getTracer().debug(this,null,-1,null,null,"  PIPELINE > STARTED");
             gorun();                            
             runtime.getTracer().debug(this,null,-1,null,null,"  PIPELINE > TERMINATED");
@@ -442,6 +463,9 @@ public class XPipeline extends XCompoundStep {
     }     
     
     // innovimax: statistics
-    public static long getMaximumMemory() { return maximumMemory; }      
-    public static void resetMaximumMemory() { maximumMemory = 0; }         
+    private static long startMemory = 0;
+    private static long maxMemory = 0;  
+    public static long getMaximumMemory() { return maxMemory; }
+    public static void resetMaximumMemory() { maxMemory = 0; }         
+        
 }

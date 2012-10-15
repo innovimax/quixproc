@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,14 +22,19 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.util;
 
-import com.xmlcalabash.core.XProcException;
-import java.io.UnsupportedEncodingException;
 import java.io.File;
+import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.net.MalformedURLException;
 
+import com.xmlcalabash.core.XProcException;
+
+/**
+ *
+ * @author ndw
+ */
 public class URIUtils {
     
     /** Creates a new instance of URIUtils */

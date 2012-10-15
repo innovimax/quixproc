@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -26,21 +26,35 @@ import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Vector;
 
+import net.sf.saxon.Configuration;
+import net.sf.saxon.lib.CollectionURIResolver;
+import net.sf.saxon.s9api.Processor;
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XQueryCompiler;
+import net.sf.saxon.s9api.XQueryEvaluator;
+import net.sf.saxon.s9api.XQueryExecutable;
+import net.sf.saxon.s9api.XdmAtomicValue;
+import net.sf.saxon.s9api.XdmItem;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.s9api.XdmNodeKind;
+
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.model.RuntimeValue;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcConstants;
-import net.sf.saxon.lib.CollectionURIResolver;
-import net.sf.saxon.s9api.*;
-import net.sf.saxon.Configuration;
 import com.xmlcalabash.runtime.XAtomicStep;
-import com.xmlcalabash.util.TreeWriter;
-import com.xmlcalabash.util.CollectionResolver;
 import com.xmlcalabash.util.Base64;
+import com.xmlcalabash.util.CollectionResolver;
 import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.TreeWriter;
 
+/**
+ *
+ * @author ndw
+ */
 public class XQuery extends DefaultStep {
     private static final QName _content_type = new QName("content-type");
 
@@ -103,6 +117,8 @@ public class XQuery extends DefaultStep {
 
         Configuration config = runtime.getProcessor().getUnderlyingConfiguration();
 
+        runtime.getConfigurer().getSaxonConfigurer().configXQuery(config);
+
         CollectionURIResolver collectionResolver = config.getCollectionURIResolver();
 
         config.setCollectionURIResolver(new CollectionResolver(runtime, defaultCollection, collectionResolver));
@@ -143,7 +159,7 @@ public class XQuery extends DefaultStep {
                 node = treeWriter.getResult();
             }
             
-            result.write(stepContext, node);
+            result.write(stepContext,node);
         }
 
         config.setCollectionURIResolver(collectionResolver);

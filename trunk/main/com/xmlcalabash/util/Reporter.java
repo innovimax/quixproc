@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,25 +21,30 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.util;
 
-import com.xmlcalabash.model.Step;
-import com.xmlcalabash.model.Input;
-import com.xmlcalabash.model.Output;
-import com.xmlcalabash.model.Parameter;
-import com.xmlcalabash.model.Option;
-import com.xmlcalabash.model.Variable;
-import com.xmlcalabash.model.Binding;
-import com.xmlcalabash.model.Serialization;
-import com.xmlcalabash.model.DocumentBinding;
-import com.xmlcalabash.model.PipeBinding;
-import com.xmlcalabash.model.PipeNameBinding;
-import com.xmlcalabash.model.DataBinding;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.core.XProcRuntime;
-
 import java.io.PrintStream;
 
 import net.sf.saxon.s9api.QName;
 
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.model.Binding;
+import com.xmlcalabash.model.DataBinding;
+import com.xmlcalabash.model.DocumentBinding;
+import com.xmlcalabash.model.Input;
+import com.xmlcalabash.model.Option;
+import com.xmlcalabash.model.Output;
+import com.xmlcalabash.model.Parameter;
+import com.xmlcalabash.model.PipeNameBinding;
+import com.xmlcalabash.model.Serialization;
+import com.xmlcalabash.model.Step;
+import com.xmlcalabash.model.Variable;
+
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Dec 5, 2008
+ * Time: 8:20:50 AM
+ * To change this template use File | Settings | File Templates.
+ */
 public class Reporter {
     private XProcRuntime runtime;
     private PrintStream pr;

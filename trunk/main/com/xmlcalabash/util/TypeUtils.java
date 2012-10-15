@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,14 +22,26 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 package com.xmlcalabash.util;
 
 
+import java.util.Hashtable;
+
+import net.sf.saxon.s9api.ItemType;
+import net.sf.saxon.s9api.ItemTypeFactory;
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XdmAtomicValue;
+import net.sf.saxon.s9api.XdmNode;
+
 import com.xmlcalabash.core.XProcConstants;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
 
-import java.util.Hashtable;
-
-import net.sf.saxon.s9api.*;
-
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Jul 17, 2008
+ * Time: 9:39:32 AM
+ * To change this template use File | Settings | File Templates.
+ */
 public class TypeUtils {
     private static final QName _XSLTMatchPattern = new QName("XSLTMatchPattern");
     private static final QName _RegularExpression = new QName("RegularExpression");

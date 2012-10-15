@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -26,9 +26,14 @@ import java.util.Vector;
 
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.XdmNode;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcConstants;
 
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcRuntime;
+
+/**
+ *
+ * @author ndw
+ */
 public class Variable extends EndPoint implements ComputableValue {
     private QName name = null;
     private String select = null;
@@ -105,6 +110,5 @@ public class Variable extends EndPoint implements ComputableValue {
             binding.dump(depth+2);
         }
     }
-    
 }
 

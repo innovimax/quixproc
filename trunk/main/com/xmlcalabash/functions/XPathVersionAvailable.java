@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,9 +21,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.functions;
 
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.runtime.XCompoundStep;
-import com.xmlcalabash.runtime.XStep;
 import net.sf.saxon.expr.XPathContext;
 import net.sf.saxon.lib.ExtensionFunctionCall;
 import net.sf.saxon.lib.ExtensionFunctionDefinition;
@@ -31,11 +28,15 @@ import net.sf.saxon.om.SequenceIterator;
 import net.sf.saxon.om.StructuredQName;
 import net.sf.saxon.trans.XPathException;
 import net.sf.saxon.tree.iter.SingletonIterator;
-import net.sf.saxon.value.SequenceType;
 import net.sf.saxon.value.BooleanValue;
 import net.sf.saxon.value.DoubleValue;
+import net.sf.saxon.value.SequenceType;
+
 import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.runtime.XCompoundStep;
+import com.xmlcalabash.runtime.XStep;
 
 //
 // The contents of this file are subject to the Mozilla Public License Version 1.0 (the "License");
@@ -61,54 +62,67 @@ import com.xmlcalabash.core.XProcRuntime;
 
 public class XPathVersionAvailable extends ExtensionFunctionDefinition {
     private static StructuredQName funcname = new StructuredQName("p", XProcConstants.NS_XPROC, "xpath-version-available");
-    private XProcRuntime runtime = null;
+    private ThreadLocal<XProcRuntime> tl_runtime = new ThreadLocal<XProcRuntime>() {
+        protected synchronized XProcRuntime initialValue() {
+            return null;
+        }
+    };
+    
+    private XProcRuntime runtime = null; // Innovimax: new property    
 
-     protected XPathVersionAvailable() {
-         // you can't call this one
-     }
+    protected XPathVersionAvailable() {
+        // you can't call this one
+    }
 
-     public XPathVersionAvailable(XProcRuntime runtime) {
-         this.runtime = runtime;
-     }
+    // Innovimax: modified constructor
+    public XPathVersionAvailable(XProcRuntime runtime) {
+        // Innovimax: desactivate ThreadLocal 
+        //tl_runtime.set(runtime);
+        this.runtime = runtime; 
+    }
 
-     public StructuredQName getFunctionQName() {
-         return funcname;
-     }
+    public StructuredQName getFunctionQName() {
+        return funcname;
+    }
 
-     public int getMinimumNumberOfArguments() {
-         return 1;
-     }
+    public int getMinimumNumberOfArguments() {
+        return 1;
+    }
 
-     public int getMaximumNumberOfArguments() {
-         return 1;
-     }
+    public int getMaximumNumberOfArguments() {
+        return 1;
+    }
 
-     public SequenceType[] getArgumentTypes() {
-         return new SequenceType[]{SequenceType.SINGLE_DOUBLE};
-     }
+    public SequenceType[] getArgumentTypes() {
+        return new SequenceType[]{SequenceType.SINGLE_DOUBLE};
+    }
 
-     public SequenceType getResultType(SequenceType[] suppliedArgumentTypes) {
-         return SequenceType.SINGLE_BOOLEAN;
-     }
+    public SequenceType getResultType(SequenceType[] suppliedArgumentTypes) {
+        return SequenceType.SINGLE_BOOLEAN;
+    }
 
-     public ExtensionFunctionCall makeCallExpression() {
-         return new SystemPropertyCall();
-     }
+    public ExtensionFunctionCall makeCallExpression() {
+        return new SystemPropertyCall();
+    }
 
-     private class SystemPropertyCall extends ExtensionFunctionCall {
-         public SequenceIterator call(SequenceIterator[] arguments, XPathContext context) throws XPathException {
-             SequenceIterator iter = arguments[0];
-             
-             XStep step = runtime.getXProcData().getStep();
-             // FIXME: this can't be the best way to do this...
-             if (!(step instanceof XCompoundStep)) {
-                 throw XProcException.dynamicError(23);
-             }
+    private class SystemPropertyCall extends ExtensionFunctionCall {
+        // Innovimax: modified function      
+        public SequenceIterator call(SequenceIterator[] arguments, XPathContext context) throws XPathException {
+            SequenceIterator iter = arguments[0];
 
-             DoubleValue value = (DoubleValue) iter.next();
-             double reqVer = value.getDoubleValue();
+            // Innovimax: desactivate ThreadLocal
+            //XProcRuntime runtime = tl_runtime.get();    
+            XStep step = runtime.getXProcData().getStep();
+            // FIXME: this can't be the best way to do this...
+            // step == null in use-when
+            if (step != null && !(step instanceof XCompoundStep)) {
+                throw XProcException.dynamicError(23);
+            }
 
-             return SingletonIterator.makeIterator((reqVer == 1.0 || reqVer == 2.0) ? BooleanValue.TRUE : BooleanValue.FALSE);
-         }
-     }
+            DoubleValue value = (DoubleValue) iter.next();
+            double reqVer = value.getDoubleValue();
+
+            return SingletonIterator.makeIterator((reqVer == 1.0 || reqVer == 2.0) ? BooleanValue.TRUE : BooleanValue.FALSE);
+        }
+    }
 }

@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,95 +22,192 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.drivers;
 
-import com.xmlcalabash.io.ReadableData;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.core.XProcConfiguration;
-import com.xmlcalabash.model.RuntimeValue;
-import com.xmlcalabash.model.Serialization;
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritableDocument;
-import net.sf.saxon.s9api.Axis;
-import net.sf.saxon.s9api.DocumentBuilder;
-import net.sf.saxon.s9api.Processor;
-import net.sf.saxon.s9api.QName;
-import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.Serializer;
-import net.sf.saxon.s9api.XQueryCompiler;
-import net.sf.saxon.s9api.XQueryEvaluator;
-import net.sf.saxon.s9api.XQueryExecutable;
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.XdmSequenceIterator;
-import org.xml.sax.InputSource;
-
-import javax.xml.transform.sax.SAXSource;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.Serializable;
-import java.net.URI;
-import java.util.Hashtable;
-import java.util.Set;
-import java.util.HashSet;
-import java.util.logging.Logger;
-import java.net.URISyntaxException;
-
-import com.xmlcalabash.runtime.XPipeline;
-import com.xmlcalabash.util.URIUtils;
-import com.xmlcalabash.util.ParseArgs;
-import com.xmlcalabash.util.LogOptions;
-
 import innovimax.quixproc.codex.util.QConfig;
 import innovimax.quixproc.codex.util.Spying;
 import innovimax.quixproc.codex.util.StepContext;
 import innovimax.quixproc.util.ExitException;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Serializable;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.HashSet;
+import java.util.Hashtable;
+import java.util.Set;
+import java.util.logging.Logger;
+
+import javax.xml.transform.sax.SAXSource;
+
+import net.sf.saxon.s9api.Axis;
+import net.sf.saxon.s9api.DocumentBuilder;
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.Serializer;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.s9api.XdmSequenceIterator;
+
+import org.xml.sax.InputSource;
+
+import com.xmlcalabash.core.XProcConfiguration;
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadableData;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritableDocument;
+import com.xmlcalabash.model.RuntimeValue;
+import com.xmlcalabash.model.Serialization;
+import com.xmlcalabash.runtime.XPipeline;
+import com.xmlcalabash.util.LogOptions;
+import com.xmlcalabash.util.ParseArgs;
+import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.URIUtils;
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
+
+/**
+ *
+ * @author ndw
+ */
 public class Main {
     private static boolean errors = false;
     private static QName _code = new QName("code");
     private XProcRuntime runtime = null;
     private boolean readStdin = false;
     private Logger logger = Logger.getLogger(this.getClass().getName());
-    private boolean debug = false;
+    private boolean debug = false;              
 
-    /**
-     * @param args the command line arguments
-     */
-    // Innovimax: desactivated main
-    /*public static void main(String[] args) throws SaxonApiException, IOException, URISyntaxException {
-        Main main = new Main();
-        main.run(args);
-    }*/    
-
-    // Innovimax: modified function
-    //public void run(String[] args) throws SaxonApiException, IOException, URISyntaxException {    
-    public Spying run(String[] args, File baseDir) throws SaxonApiException, IOException, URISyntaxException {    
-        throw new RuntimeException("Incorrect driver running method");
+    // Innovimax: modified function    
+    private void showVersion() {
+        System.out.println("QuiXProc version " + XProcConstants.XPROC_VERSION + ", an XProc processor.");
+        if (runtime != null) {
+            System.out.print("Running on Saxon version ");
+            System.out.print(runtime.getConfiguration().getProcessor().getSaxonProductVersion());
+            System.out.print(", ");
+            System.out.print(runtime.getConfiguration().getProcessor().getUnderlyingConfiguration().getEditionCode());
+            System.out.println(" edition.");
+        }
+        System.out.println("Copyright (c) 2011-2012 Innovimax and 2007-2012 Norman Walsh");
+        System.out.println("See http://quixproc.com/");
+//        System.out.println("See docs/notices/NOTICES in the distribution for licensing");
+//        System.out.println("See also http://xmlcalabash.com/ for more information");
+        System.out.println("");
     }
     
-    /** Datastructure to hold compiled stylesheet */
+    // Innovimax: modified function
+    private void usage() throws IOException {
+        showVersion();
+
+        InputStream instream = getClass().getResourceAsStream("/etc/usage.txt");
+        if (instream == null) {
+            throw new UnsupportedOperationException("Failed to load usage text from JAR file. This \"can't happen\".");
+        }
+
+        BufferedReader br = new BufferedReader(new InputStreamReader(instream));
+        String line = null;
+        while ((line = br.readLine()) != null) {
+            System.err.println(line);
+        }
+        instream.close();
+        br.close();        
+        // Innovimax: exit 
+        //System.exit(1);
+        throw new ExitException(1,"Show usage.");         
+    }
+
+    private String errorMessage(QName code) {
+        InputStream instream = getClass().getResourceAsStream("/etc/error-list.xml");
+        if (instream != null) {
+            XdmNode doc = runtime.parse(new InputSource(instream));
+            XdmSequenceIterator iter = doc.axisIterator(Axis.DESCENDANT, new QName(XProcConstants.NS_XPROC_ERROR,"error"));
+            while (iter.hasNext()) {
+                XdmNode error = (XdmNode) iter.next();
+                if (code.getLocalName().equals(error.getAttributeValue(_code))) {
+                    return error.getStringValue();
+                }
+            }
+        }
+        return "Unknown error";
+    }
+
+    // ===========================================================
+    // Logging methods repeated here so that they don't rely
+    // on the XProcRuntime constructor succeeding.
+
+    private String message(XdmNode node, String message) {
+        String baseURI = "(unknown URI)";
+        int lineNumber = -1;
+
+        if (node != null) {
+            baseURI = node.getBaseURI().toASCIIString();
+            lineNumber = node.getLineNumber();
+            return baseURI + ":" + lineNumber + ": " + message;
+        } else {
+            return message;
+        }
+
+    }
+
+    public void error(Logger logger, XdmNode node, String message, QName code) {
+        logger.severe(message(node, message));
+    }
+
+    public void warning(Logger logger, XdmNode node, String message) {
+        logger.warning(message(node, message));
+    }
+
+    public void info(Logger logger, XdmNode node, String message) {
+        logger.info(message(node, message));
+    }
+
+    public void fine(Logger logger, XdmNode node, String message) {
+        logger.fine(message(node, message));
+    }
+
+    public void finer(Logger logger, XdmNode node, String message) {
+        logger.finer(message(node, message));
+    }
+
+    public void finest(Logger logger, XdmNode node, String message) {
+        logger.finest(message(node, message));
+    }
+
+    //*************************************************************************
+    // INNOVIMAX IMPLEMENTATION
+    //************************************************************************* 
+    
+    // data structure to hold compiled stylesheet
     public static class CompiledData implements Serializable {
       public XProcConfiguration config = null;
       public XPipeline pipeline = null;
       public StepContext stepContext = new StepContext();
-      public ParseArgs cmd = new ParseArgs();       
-    }
+      public ParseArgs cmd = new ParseArgs();                   
+    }      
+        
+    public Spying run(String[] args, File baseDir) throws SaxonApiException, IOException, URISyntaxException {    
+        throw new RuntimeException("Incorrect driver running method");
+    }     
     
+    // extracted from old run
     public void run(String[] args, QConfig qconfig) throws SaxonApiException, IOException, URISyntaxException {    
-      CompiledData data = compile(args, qconfig);
-
+      
+        // Innovimax: build data structure
+        CompiledData data = compile(args, qconfig);
         XProcConfiguration config = data.config;
         XPipeline pipeline = data.pipeline;
         StepContext stepContext = data.stepContext;
-        ParseArgs cmd = data.cmd;
-          
+        ParseArgs cmd = data.cmd;        
+                      
         try {
             // Process parameters from the configuration...
             for (String port : config.params.keySet()) {
@@ -144,27 +241,24 @@ public class Main {
             allPorts.addAll(cmdPorts);
             allPorts.addAll(cfgPorts);
 
-            for (String port : allPorts) {                
+            for (String port : allPorts) {
                 if (!ports.contains(port)) {
                     throw new XProcException("There is a binding for the port '" + port + "' but the pipeline declares no such port.");
-                }                
+                }
 
                 pipeline.clearInputs(port);
 
-                if (cmdPorts.contains(port)) {                         
+                if (cmdPorts.contains(port)) {
                     XdmNode doc = null;
-                    for (String uri : cmd.getInputs(port)) {                                                
+                    for (String uri : cmd.getInputs(port)) {
                         if (uri.startsWith("xml:")) {
                             uri = uri.substring(4);
 
                             SAXSource source = null;
                             if ("-".equals(uri)) {
-                                source = new SAXSource(new InputSource(System.in));
-                                DocumentBuilder builder = runtime.getProcessor().newDocumentBuilder();
-                                doc = builder.build(source);
+                                doc = runtime.parse(new InputSource(System.in));
                             } else {
-                                source = new SAXSource(new InputSource(uri));
-                                doc = runtime.parse(uri, URIUtils.cwdAsURI().toASCIIString());
+                                doc = runtime.parse(new InputSource(uri));
                             }
                         } else if (uri.startsWith("data:")) {
                             uri = uri.substring(5);
@@ -172,20 +266,21 @@ public class Main {
                             doc = rd.read(stepContext);
                         } else {
                             throw new UnsupportedOperationException("Unexpected input type: " + uri);
-                        }                        
-                        pipeline.writeTo(port, doc);                        
+                        }
+
+                        pipeline.writeTo(port, doc);
                         // Innovimax: close pipe
-                        pipeline.closeWrittenPipe(port);   
+                        pipeline.closeWrittenPipe(port);                          
                     }
-                } else {                                                            
-                    for (ReadablePipe pipe : config.inputs.get(port)) {                        
-                        XdmNode doc = pipe.read(stepContext);                                                
-                        pipeline.writeTo(port, doc);                        
+                } else {
+                    for (ReadablePipe pipe : config.inputs.get(port)) {
+                        XdmNode doc = pipe.read(stepContext);
+                        pipeline.writeTo(port, doc);
                         // Innovimax: close pipe
-                        pipeline.closeWrittenPipe(port);   
-                    }                    
+                        pipeline.closeWrittenPipe(port);                          
+                    }
                 }
-            }                               
+            }
 
             String stdio = null;
 
@@ -234,7 +329,7 @@ public class Main {
             }
 
             // Innovimax: start memory spy                   
-            runtime.startSpying(args);                        
+            runtime.startSpying();                        
 
             // Innovimax: exec pipeline
             //pipeline.run();  
@@ -243,14 +338,13 @@ public class Main {
             // Innovimax: stop memory spy                   
             runtime.stopSpying(); 
 
-            for (String port : pipeline.getOutputs()) {                
+            for (String port : pipeline.getOutputs()) {
                 String uri = null;
-                
                 if (cmd.outputs.containsKey(port)) {
                     uri = cmd.outputs.get(port);
                 } else if (config.outputs.containsKey(port)) {
                     uri = config.outputs.get(port);
-                }                                
+                }
 
                 if (port.equals(stdio)) {
                     finest(logger, null, "Copy output from " + port + " to stdout");
@@ -263,7 +357,7 @@ public class Main {
                 }
 
                 Serialization serial = pipeline.getSerialization(port);
-                
+
                 if (serial == null) {
                     // Use the configuration options
                     // FIXME: should each of these be considered separately?
@@ -295,17 +389,21 @@ public class Main {
                 WritableDocument wd = null;
                 if (uri != null) {
                     URI furi = new URI(uri);
-                    String filename = furi.getPath();                    
+                    String filename = furi.getPath();
                     FileOutputStream outfile = new FileOutputStream(filename);
-                    wd = new WritableDocument(runtime,filename,serial,outfile);                    
+                    wd = new WritableDocument(runtime,filename,serial,outfile);
                 } else {
                     wd = new WritableDocument(runtime,uri,serial);
-                }                
+                }
 
-                ReadablePipe rpipe = pipeline.readFrom(port);                
+                ReadablePipe rpipe = pipeline.readFrom(port);
                 while (rpipe.moreDocuments(stepContext)) {
-                    wd.write(stepContext, rpipe.read(stepContext));                     
-                }                
+                    wd.write(stepContext,rpipe.read(stepContext));
+                }
+
+                if (uri!=null) {
+                   wd.close(stepContext);
+                }
             }
 
             if (stdio != null) {
@@ -314,7 +412,7 @@ public class Main {
             }
         } catch (ExitException err) {            
             // Innovimax: exit 
-            throw err;                               
+            throw err;                          
         } catch (XProcException err) {
             if (err.getErrorCode() != null) {
                 error(logger, null, errorMessage(err.getErrorCode()), err.getErrorCode());
@@ -331,27 +429,33 @@ public class Main {
                 error(logger, null, "Underlying exception: " + cause, null);
             }
 
-            if (debug) {
+            // Innovimax: debug trace
+            if (debug || qconfig.isTraceAll()) {
                 err.printStackTrace();
             }
             // Innovimax: exit 
-            throw new ExitException(-1); 
+            throw new ExitException(-1,err);             
         } catch (Exception err) {
             error(logger, null, "Pipeline failed: " + err.toString(), null);
             if (err.getCause() != null) {
                 Throwable cause = err.getCause();
                 error(logger, null, "Underlying exception: " + cause, null);
             }
-            if (debug) {
+            // Innovimax: debug trace
+            if (debug || qconfig.isTraceAll()) {
                 err.printStackTrace();
             }
             // Innovimax: exit 
-            throw new ExitException(-1);                      
+            throw new ExitException(-1,err);               
         }
     }
-
-    private CompiledData compile(String[] args, QConfig qconfig) throws IOException, SaxonApiException, URISyntaxException {
-      CompiledData data = new CompiledData(); 
+        
+    // extracted from old run
+    private CompiledData compile(String[] args, QConfig qconfig) throws XProcException, ExitException, IOException, SaxonApiException {
+      
+        // Innovimax: instantiate data structure
+        CompiledData data = new CompiledData(); 
+        
         try {
             data.cmd.parse(args);
         } catch (XProcException xe) {
@@ -359,194 +463,142 @@ public class Main {
             usage();
         }
 
+        if (data.cmd.saxonConfigFile != null) {
+            if (data.cmd.schemaAware) {
+                throw new XProcException("Specifying schema-aware processing is an error if you specify a Saxon configuration file.");
+            }
+            if (data.cmd.saxonProcessor != null) {
+                throw new XProcException("Specifying a processor type is an error if you specify a Saxon configuration file.");
+            }
+        }
 
-            try {
-                if (data.cmd.schemaAware) {
-                    data.config = new XProcConfiguration(data.cmd.schemaAware);
-                } else {
-                    data.config = new XProcConfiguration();
-                }
-            } catch (Exception e) {
-                System.err.println("FATAL: Failed to parse configuration file.");
-                System.err.println(e);
-                // Innovimax: exit 
-                //System.exit(1);
-                throw new ExitException(2);            
+        // Innovimax: obsolete
+        //XProcConfiguration config = null;
+
+        // Blech
+        try {
+            String proc = data.cmd.saxonProcessor;
+            if (data.cmd.schemaAware) {
+                proc = "ee";
             }
 
-            if (data.cmd.configFile != null) {
-                // Make this absolute because sometimes it fails from the command line otherwise. WTF?
-                String cfgURI = URIUtils.cwdAsURI().resolve(data.cmd.configFile).toASCIIString();
-                SAXSource source = new SAXSource(new InputSource(cfgURI));
-                DocumentBuilder builder = data.config.getProcessor().newDocumentBuilder();
-                XdmNode doc = builder.build(source);
-                data.config.parse(doc);
+            if (data.cmd.saxonConfigFile != null) {
+                data.config = new XProcConfiguration(data.cmd.saxonConfigFile);
+            } else if (proc != null) {
+                data.config = new XProcConfiguration(proc, data.cmd.schemaAware);
+            } else {
+                data.config = new XProcConfiguration();
+            }
+        } catch (Exception e) {
+            System.err.println("FATAL: Failed to parse configuration file.");
+            System.err.println(e);
+            // Innovimax: exit 
+            //System.exit(2);
+            throw new ExitException(2,e);  
+        }
+        // set Processor to be the same
+        qconfig.getQuiXPath().setProcessor(data.config.getProcessor());
+
+        if (data.cmd.configFile != null) {
+            // Make this absolute because sometimes it fails from the command line otherwise. WTF?
+            String cfgURI = URIUtils.cwdAsURI().resolve(data.cmd.configFile).toASCIIString();
+            SAXSource source = new SAXSource(new InputSource(cfgURI));
+            // No resolver, we don't have one yet
+            DocumentBuilder builder = data.config.getProcessor().newDocumentBuilder();
+            XdmNode doc = builder.build(source);
+            data.config.parse(doc);
+        }
+
+        if (data.cmd.logStyle != null) {
+            if (data.cmd.logStyle.equals("off")) {
+                data.config.logOpt = LogOptions.OFF;
+            } else if (data.cmd.logStyle.equals("plain")) {
+                data.config.logOpt = LogOptions.PLAIN;
+            } else if (data.cmd.logStyle.equals("directory")) {
+                data.config.logOpt = LogOptions.DIRECTORY;
+            } else {
+                data.config.logOpt = LogOptions.WRAPPED;
+            }
+        }
+
+        if (data.cmd.uriResolverClass != null) {
+            data.config.uriResolver = data.cmd.uriResolverClass;
+        }
+
+        if (data.cmd.entityResolverClass != null) {
+            data.config.entityResolver = data.cmd.entityResolverClass;
+        }
+
+        if (data.cmd.safeModeExplicit) {
+            data.config.safeMode = data.cmd.safeMode;
+        }
+        
+        if (data.cmd.debugExplicit) {
+            data.config.debug = data.cmd.debug;
+        }
+
+        data.config.extensionValues |= data.cmd.extensionValues;
+        data.config.xpointerOnText |= data.cmd.allowXPointerOnText;
+        data.config.transparentJSON |= data.cmd.transparentJSON;
+        if (data.cmd.jsonFlavor != null) {
+            data.config.jsonFlavor = data.cmd.jsonFlavor;
+        }
+        data.config.useXslt10 |= data.cmd.useXslt10;
+
+        debug = data.config.debug;
+
+        runtime = new XProcRuntime(data.config);
+        
+        // Innovimax: set qconfig            
+        runtime.setQConfig(qconfig);          
+
+        if (data.cmd.showVersion) {
+            showVersion();
+        }
+
+        if (data.cmd.pipelineURI != null) {
+            data.pipeline = runtime.load(data.cmd.pipelineURI);
+        } else if (data.cmd.impliedPipeline()) {
+            XdmNode implicitPipeline = data.cmd.implicitPipeline(runtime);
+
+            if (debug) {
+                System.err.println("Implicit pipeline:");
+
+                Serializer serializer = new Serializer();
+
+                serializer.setOutputProperty(Serializer.Property.INDENT, "yes");
+                serializer.setOutputProperty(Serializer.Property.METHOD, "xml");
+
+                serializer.setOutputStream(System.err);
+
+                S9apiUtils.serialize(runtime, implicitPipeline, serializer);
             }
 
-            if (data.cmd.logStyle != null) {
-                if (data.cmd.logStyle.equals("off")) {
-                    data.config.logOpt = LogOptions.OFF;
-                } else if (data.cmd.logStyle.equals("plain")) {
-                    data.config.logOpt = LogOptions.PLAIN;
-                } else if (data.cmd.logStyle.equals("directory")) {
-                    data.config.logOpt = LogOptions.DIRECTORY;
-                } else {
-                    data.config.logOpt = LogOptions.WRAPPED;
-                }
-            }
-
-            if (data.cmd.uriResolverClass != null) {
-                data.config.uriResolver = data.cmd.uriResolverClass;
-            }
-
-            if (data.cmd.entityResolverClass != null) {
-                data.config.entityResolver = data.cmd.entityResolverClass;
-            }
-
-            if (data.cmd.safeModeExplicit) {
-                data.config.safeMode = data.cmd.safeMode;
-            }
+            data.pipeline=runtime.use(implicitPipeline);
             
-            if (data.cmd.debugExplicit) {
-                data.config.debug = data.cmd.debug;
-            }
-
-            data.config.extensionValues = data.cmd.extensionValues;
-
-            debug = data.config.debug;
-
-            runtime = new XProcRuntime(data.config);
-            
-            // Innovimax: set qconfig            
-            runtime.setQConfig(qconfig);            
-
-
-            if (data.cmd.pipelineURI != null) {
-                data.pipeline = runtime.load(data.cmd.pipelineURI);
-            } else if (data.cmd.impliedPipeline()) {
-                XdmNode implicitPipeline = data.cmd.implicitPipeline(runtime);
-
-                if (debug) {
-                    System.err.println("Implicit pipeline:");
-                    Processor qtproc = runtime.getProcessor();
-                    DocumentBuilder builder = qtproc.newDocumentBuilder();
-                    builder.setBaseURI(new URI("http://example.com/"));
-                    XQueryCompiler xqcomp = qtproc.newXQueryCompiler();
-                    XQueryExecutable xqexec = xqcomp.compile(".");
-                    XQueryEvaluator xqeval = xqexec.load();
-                    xqeval.setContextItem(implicitPipeline);
-
-                    Serializer serializer = new Serializer();
-
-                    serializer.setOutputProperty(Serializer.Property.INDENT, "yes");
-                    serializer.setOutputProperty(Serializer.Property.METHOD, "xml");
-
-                    serializer.setOutputStream(System.err);
-
-                    xqeval.setDestination(serializer);
-                    xqeval.run();
-                }
-
-                data.pipeline=runtime.use(implicitPipeline);
-                
-            } else if (data.config.pipeline != null) {
-                XdmNode doc = data.config.pipeline.read(data.stepContext);
-                data.pipeline = runtime.use(doc);
-            }
-            
-            if (errors || data.pipeline == null) {
-                usage();
-            }
-
-      return data;
-    }
-
-    private void usage() throws IOException {
-        System.out.println("QuiXProc version " + XProcConstants.XPROC_VERSION + ", an XProc processor");
-        System.out.println("Copyright (c) 2011 Innovimax and 2007-2011 Norman Walsh");
-        System.out.println("See http://quixproc.com/");
-        System.out.println("");
-
-        InputStream instream = getClass().getResourceAsStream("/etc/usage.txt");
-        if (instream == null) {
-            throw new UnsupportedOperationException("Failed to load usage text from JAR file. This \"can't happen\".");
+        } else if (data.config.pipeline != null) {
+            XdmNode doc = data.config.pipeline.read(data.stepContext);
+            data.pipeline = runtime.use(doc);
         }
-
-        BufferedReader br = new BufferedReader(new InputStreamReader(instream));
-        String line = null;
-        while ((line = br.readLine()) != null) {
-            System.err.println(line);
+        
+        if (errors || data.pipeline == null) {
+            usage();
         }
-        instream.close();
-        br.close();
-        // Innovimax: exit 
-        //System.exit(1);
-        throw new ExitException(1);   
+        
+        return data;                
+    } 
+    
+    //*************************************************************************
+    // INNOVIMAX DEPRECATION
+    //*************************************************************************       
+/*        
+    public static void main(String[] args) throws SaxonApiException, IOException, URISyntaxException {
+        Main main = new Main();
+        main.run(args);
+    }   
+    
+    public void run(String[] args) throws SaxonApiException, IOException, URISyntaxException {                
+        //...
     }
-
-    private String errorMessage(QName code) {
-        InputStream instream = getClass().getResourceAsStream("/etc/error-list.xml");
-        if (instream != null) {
-            try {
-                SAXSource source = new SAXSource(new InputSource(instream));
-                DocumentBuilder builder = runtime.getProcessor().newDocumentBuilder();
-                XdmNode doc = builder.build(source);
-                XdmSequenceIterator iter = doc.axisIterator(Axis.DESCENDANT, new QName(XProcConstants.NS_XPROC_ERROR,"error"));
-                while (iter.hasNext()) {
-                    XdmNode error = (XdmNode) iter.next();
-                    if (code.getLocalName().equals(error.getAttributeValue(_code))) {
-                        return error.getStringValue();
-                    }
-                }
-            } catch (SaxonApiException sae) {
-                // nop;
-            }
-        }
-        return "Unknown error";
-    }
-
-    // ===========================================================
-    // Logging methods repeated here so that they don't rely
-    // on the XProcRuntime constructor succeeding.
-
-    private String message(XdmNode node, String message) {
-        String baseURI = "(unknown URI)";
-        int lineNumber = -1;
-
-        if (node != null) {
-            baseURI = node.getBaseURI().toASCIIString();
-            lineNumber = node.getLineNumber();
-            return baseURI + ":" + lineNumber + ": " + message;
-        } else {
-            return message;
-        }
-
-    }
-
-    public void error(Logger logger, XdmNode node, String message, QName code) {
-        logger.severe(message(node, message));
-    }
-
-    public void warning(Logger logger, XdmNode node, String message) {
-        logger.warning(message(node, message));
-    }
-
-    public void info(Logger logger, XdmNode node, String message) {
-        logger.info(message(node, message));
-    }
-
-    public void fine(Logger logger, XdmNode node, String message) {
-        logger.fine(message(node, message));
-    }
-
-    public void finer(Logger logger, XdmNode node, String message) {
-        logger.finer(message(node, message));
-    }
-
-    public void finest(Logger logger, XdmNode node, String message) {
-        logger.finest(message(node, message));
-    }
-
-    // ===========================================================
-
+*/
 }

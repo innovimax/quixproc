@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,39 +21,37 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.runtime;
 
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcData;
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.Pipe;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.model.Step;
-import com.xmlcalabash.model.RuntimeValue;
-import com.xmlcalabash.model.Variable;
-import com.xmlcalabash.model.Option;
-import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.XdmNode;
+import innovimax.quixproc.codex.util.DocumentCollector;
+import innovimax.quixproc.codex.util.ForEachCollector;
+import innovimax.quixproc.codex.util.StepContext;
+import innovimax.quixproc.codex.util.VariablesCalculator;
+import innovimax.quixproc.codex.util.Waiting;
+import innovimax.quixproc.util.shared.ChannelList;
+
+import java.util.Hashtable;
+
 import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
 
-import java.util.Vector;
-import java.util.List; // Innovimax: new import
-import java.util.ArrayList; // Innovimax: new import
-import java.util.Hashtable; // Innovimax: new import
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.Pipe;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.model.RuntimeValue;
+import com.xmlcalabash.model.Step;
 
-import innovimax.quixproc.codex.util.PipedDocument;  
-  
-import innovimax.quixproc.codex.util.Waiting;  
-import innovimax.quixproc.codex.util.DocumentCollector;  
-import innovimax.quixproc.codex.util.ForEachCollector;  
-import innovimax.quixproc.codex.util.VariablesCalculator;  
-import innovimax.quixproc.codex.util.StepContext;  
-import innovimax.quixproc.util.shared.ChannelList;  
-
-public class XForEach extends XCompoundStep {    
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 14, 2008
+ * Time: 5:44:42 AM
+ * To change this template use File | Settings | File Templates.
+ */
+public class XForEach extends XCompoundStep {
     protected Pipe current = null;  // Innovimax: private changed to protected
     protected int sequencePosition = 0;  // Innovimax: private changed to protected
-    protected int sequenceLength = 0; // Innovimax: private changed to protected
+    protected int sequenceLength = 0; // Innovimax: private changed to protected    
 
     public XForEach(XProcRuntime runtime, Step step, XCompoundStep parent) {
         super(runtime, step, parent);
@@ -64,7 +62,7 @@ public class XForEach extends XCompoundStep {
             if (current == null) {
                 current = new Pipe(runtime);
             }
-            return new Pipe(runtime,current.documents());
+            return new Pipe(runtime,current.documents(stepContext));
         } else {
             return super.getBinding(stepName, portName);
         }
@@ -80,10 +78,9 @@ public class XForEach extends XCompoundStep {
         sequencePosition = 0;
     }
     
-    // Innovimax: replaced/mofified by gorun()
-    //public void run() throws SaxonApiException {
-    public void gorun() throws SaxonApiException {  
-        info(null, "Running p:for-each " + step.getName());
+    // Innovimax: modified function
+    public void gorun() throws SaxonApiException {
+        fine(null, "Running p:for-each " + step.getName());
 
         // Innovimax: XProcData desactivated
         //XProcData data = runtime.getXProcData();
@@ -99,7 +96,7 @@ public class XForEach extends XCompoundStep {
         sequenceLength = 0;
 
         inScopeOptions = parent.getInScopeOptions();
-        
+
         // Innovimax: execute subpipeline in thread
         doRun(iport);     
                
@@ -114,14 +111,14 @@ public class XForEach extends XCompoundStep {
                 nodes.add(is_doc);
                 sequenceLength++;
             }
-        }                
+        }
 
         runtime.getXProcData().setIterationSize(sequenceLength);
-        
+
         for (XdmNode is_doc : nodes) {
             // Setup the current port before we compute variables!
             current.resetWriter(stepContext);
-            current.write(stepContext, is_doc);            
+            current.write(stepContext,is_doc);
             finest(step.getNode(), "Copy to current");
 
             sequencePosition++;
@@ -130,10 +127,21 @@ public class XForEach extends XCompoundStep {
             for (Variable var : step.getVariables()) {
                 RuntimeValue value = computeValue(var);
                 inScopeOptions.put(var.getName(), value);
-            }            
+            }
 
-            for (XStep step : subpipeline) {             
-                step.run();                    
+            // N.B. At this time, there are no compound steps that accept parameters or options,
+            // so the order in which we calculate them doesn't matter. That will change if/when
+            // there are such compound steps.
+
+            // Calculate all the variables
+            inScopeOptions = parent.getInScopeOptions();
+            for (Variable var : step.getVariables()) {
+                RuntimeValue value = computeValue(var);
+                inScopeOptions.put(var.getName(), value);
+            }
+
+            for (XStep step : subpipeline) {
+                step.gorun();
             }
 
             for (String port : inputs.keySet()) {
@@ -151,7 +159,7 @@ public class XForEach extends XCompoundStep {
                         reader.canReadSequence(true); // Hack again!
                         while (reader.moreDocuments(stepContext)) {
                             XdmNode doc = reader.read(stepContext);
-                            pipe.write(stepContext, doc);
+                            pipe.write(stepContext,doc);
                             docsCopied++;
                             finest(step.getNode(), "Output copy from " + reader + " to " + pipe);
                         }
@@ -179,7 +187,7 @@ public class XForEach extends XCompoundStep {
 
         data.closeFrame();*/
     }
-    
+        
     //*************************************************************************
     //*************************************************************************        
     //*************************************************************************
@@ -230,10 +238,10 @@ public class XForEach extends XCompoundStep {
         
         // prepare outputs      
         for (String port : inputs.keySet()) {
-            if (port.startsWith("|")) {
+            if (port.startsWith("|")) {                
                 String wport = port.substring(1);                        
-                WritablePipe pipe = outputs.get(wport);                        
-                // The output of a for-each is a sequence, irrespective of what the output says
+                WritablePipe pipe = outputs.get(wport);                                                        
+                // The output of a for-each is a sequence, irrespective of what the output says                
                 pipe.canWriteSequence(true);                        
                 pipe.setWriter(stepContext, step);               
                 for (ReadablePipe reader : inputs.get(port)) {
@@ -250,10 +258,10 @@ public class XForEach extends XCompoundStep {
         while (selCollector.isRunning() || index < inCount) {                
             if (index < inCount) {                        
                 int selChannel = channels.get(index++);                                                                                      
-                for (String port : inputs.keySet()) {
+                for (String port : inputs.keySet()) {                    
                     if (port.startsWith("|")) {
-                        String wport = port.substring(1);                        
-                        WritablePipe pipe = outputs.get(wport);                                                
+                        String wport = port.substring(1);                                
+                        WritablePipe pipe = outputs.get(wport);                                                  
                         DocumentCollector outCollector = new DocumentCollector(DocumentCollector.TYPE_OUTPUT, runtime, this, inputs.get(port), pipe, selChannel, false);                        
                         outCollector.setEndAdvising();                        
                         Thread t3 = new Thread(outCollector); 
@@ -273,10 +281,10 @@ public class XForEach extends XCompoundStep {
             waiter.check();                     
             Thread.yield();
         }                   
-        for (String port : inputs.keySet()) {
+        for (String port : inputs.keySet()) {            
             if (port.startsWith("|")) {
                 String wport = port.substring(1);
-                WritablePipe pipe = outputs.get(wport);
+                WritablePipe pipe = outputs.get(wport);                
                 pipe.close(stepContext); // Indicate that we're done
             }
         }                   
@@ -416,6 +424,5 @@ public class XForEach extends XCompoundStep {
     private void cloneInstantiation(Pipe current, XForEachSub xfeSub) {
         this.current = current;
         this.xfeSub = xfeSub;
-    }          
-    
+    }                   
 }

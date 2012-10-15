@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -91,12 +91,15 @@ public class Rename extends DefaultStep implements MatchHandler {
                 
         try {             
             out = result.newPipedDocument(stepContext.curChannel);             
-            EventReader evr = new EventReader(source.readAsStream(stepContext), null);                 
-            XPathMatcher xmatch = new XPathMatcher(runtime.getProcessor(), runtime.getQConfig().getQuiXPath(), evr, this, match.getString(), false);
+            EventReader evr = new EventReader(source.readAsStream(stepContext), null); 
+            //System.out.println("Rename "+ match.getString());
+            XPathMatcher xmatch = new XPathMatcher(runtime.getProcessor(), runtime.getQConfig().getQuiXPath(), evr, this, match.getString(), false, !streamAll);
+            //System.out.println("Rename Match Done "+ match.getString());
+               
             Thread t = new Thread(xmatch);            
             runtime.getTracer().debug(step,null,-1,source,null,"  RENAME > RUN MATCH THREAD");                    
-            t.start();                                           
             running = true;
+            t.start();                                           
         }         
         catch (Exception e) {            
             throw new XProcException(e);      
@@ -116,7 +119,7 @@ public class Rename extends DefaultStep implements MatchHandler {
         if (!out.isClosed()) {                  
             throw new XProcException("Thread concurrent error : unclosed renamed document");                   
         }          
-        running = false;
+        running = false;        
     }    
 
     public void errorProcess(Exception e) {    
@@ -131,20 +134,26 @@ public class Rename extends DefaultStep implements MatchHandler {
             boolean close = false;
             QuixEvent event = match.getEvent();
             switch (event.getType()) {
-                case START_DOCUMENT :
-                    runtime.getTracer().debug(step,null,-1,source,null,"    MATCH > START DOCUMENT"); 
-                    break;
-                case END_DOCUMENT :
-                    runtime.getTracer().debug(step,null,-1,source,null,"    MATCH > END DOCUMENT");        
-                    close = true;                 
-                    break;
+                case START_SEQUENCE:
+                  runtime.getTracer().debug(step, null, -1, source, null, "    MATCH > START SEQUENCE");
+                  break;
+                case START_DOCUMENT:
+                  runtime.getTracer().debug(step, null, -1, source, null, "    MATCH > START DOCUMENT");
+                  break;
+                case END_DOCUMENT:
+                  runtime.getTracer().debug(step, null, -1, source, null, "    MATCH > END DOCUMENT");
+                  break;
+                case END_SEQUENCE:
+                  runtime.getTracer().debug(step, null, -1, source, null, "    MATCH > END SEQUENCE");
+                  close = true;
+                  break;
                 case START_ELEMENT :
-                    if (match.isMatched()) {
+                    if (match.isMatched()) {                        
                         event = QuixEvent.getStartElement(newName, newNS == null ? event.asStartElement().getURI() : newNS, newPrefix == null ? event.asStartElement().getPrefix() : newPrefix);     
                     }
                     break;
                 case END_ELEMENT :  
-                    if (match.isMatched()) {
+                    if (match.isMatched()) {                        
                         event = QuixEvent.getEndElement(newName, newNS == null ? event.asEndElement().getURI() : newNS, newPrefix == null ? event.asEndElement().getPrefix() : newPrefix);     
                     }
                     break;
@@ -154,7 +163,7 @@ public class Rename extends DefaultStep implements MatchHandler {
                     }
                     break;
                 case PI :  
-                    if (!newNS.equals("")) {
+                    if (newNS!=null) {
                         throw XProcException.stepError(13);                        
                     }               
                     if (match.isMatched()) {
@@ -162,12 +171,12 @@ public class Rename extends DefaultStep implements MatchHandler {
                     }
                     break;
                 case COMMENT :
-                    if (match.isMatched()) {                
+                    if (match.isMatched()) {                                
                         throw XProcException.stepError(23);
                     }
                     break;
                 case TEXT :
-                    if (match.isMatched()) {
+                    if (match.isMatched()) {                        
                         throw XProcException.stepError(23);
                     }
                     break;

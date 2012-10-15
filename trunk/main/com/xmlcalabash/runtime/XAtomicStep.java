@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,75 +21,79 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.runtime;
 
-import com.xmlcalabash.util.RelevantNodes;
-import com.xmlcalabash.util.S9apiUtils;
-import com.xmlcalabash.util.TypeUtils;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcStep;
-import com.xmlcalabash.core.XProcData;
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.io.ReadableInline;
-import com.xmlcalabash.io.ReadableDocument;
-import com.xmlcalabash.io.ReadableData;
-import com.xmlcalabash.io.Pipe;
-import com.xmlcalabash.model.RuntimeValue;
-import com.xmlcalabash.model.Step;
-import com.xmlcalabash.model.Binding;
-import com.xmlcalabash.model.PipeNameBinding;
-import com.xmlcalabash.model.InlineBinding;
-import com.xmlcalabash.model.DocumentBinding;
-import com.xmlcalabash.model.DataBinding;
-import com.xmlcalabash.model.Input;
-import com.xmlcalabash.model.Output;
-import com.xmlcalabash.model.Parameter;
-import com.xmlcalabash.model.ComputableValue;
-import com.xmlcalabash.model.NamespaceBinding;
-import com.xmlcalabash.model.DeclareStep;
-import com.xmlcalabash.model.Option;
-import com.xmlcalabash.model.Variable;  // Innovimax: new import
-import net.sf.saxon.trans.XPathException;
-import net.sf.saxon.s9api.QName;
-import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.Axis;
-import net.sf.saxon.s9api.XdmNodeKind;
-import net.sf.saxon.s9api.XdmAtomicValue;
-import net.sf.saxon.s9api.XPathCompiler;
-import net.sf.saxon.s9api.XPathExecutable;
-import net.sf.saxon.s9api.XPathSelector;
-import net.sf.saxon.s9api.XdmItem;
-import net.sf.saxon.s9api.XdmValue;
-import net.sf.saxon.s9api.XdmSequenceIterator;
-import net.sf.saxon.s9api.XdmDestination;
-import net.sf.saxon.s9api.SaxonApiUncheckedException;
-
-import java.util.Vector;
-import java.util.Hashtable;
-import java.util.Iterator;
-import java.util.HashSet;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.Map;  // Innovimax: new import
-import java.util.HashMap;  // Innovimax: new import
-
 import innovimax.quixproc.codex.io.AggregatePipe;
-
 import innovimax.quixproc.codex.util.OptionsCalculator;
 import innovimax.quixproc.codex.util.PipedDocument;
 import innovimax.quixproc.codex.util.VariableEvaluator;
-import innovimax.quixproc.codex.util.XPathUtils; 
+import innovimax.quixproc.codex.util.XPathUtils;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Hashtable;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Vector;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import net.sf.saxon.s9api.Axis;
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.SaxonApiUncheckedException;
+import net.sf.saxon.s9api.XPathCompiler;
+import net.sf.saxon.s9api.XPathExecutable;
+import net.sf.saxon.s9api.XPathSelector;
+import net.sf.saxon.s9api.XdmAtomicValue;
+import net.sf.saxon.s9api.XdmDestination;
+import net.sf.saxon.s9api.XdmItem;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.s9api.XdmNodeKind;
+import net.sf.saxon.s9api.XdmSequenceIterator;
+import net.sf.saxon.s9api.XdmValue;
+import net.sf.saxon.trans.XPathException;
+
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.core.XProcStep;
+import com.xmlcalabash.io.DocumentSequence;
+import com.xmlcalabash.io.Pipe;
+import com.xmlcalabash.io.ReadableDocument;
+import com.xmlcalabash.io.ReadableInline;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.model.Binding;
+import com.xmlcalabash.model.ComputableValue;
+import com.xmlcalabash.model.DataBinding;
+import com.xmlcalabash.model.DocumentBinding;
+import com.xmlcalabash.model.InlineBinding;
+import com.xmlcalabash.model.Input;
+import com.xmlcalabash.model.NamespaceBinding;
+import com.xmlcalabash.model.Option;
+import com.xmlcalabash.model.Output;
+import com.xmlcalabash.model.Parameter;
+import com.xmlcalabash.model.PipeNameBinding;
+import com.xmlcalabash.model.RuntimeValue;
+import com.xmlcalabash.model.Step;
+import com.xmlcalabash.model.Variable;
+import com.xmlcalabash.util.RelevantNodes;
+import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.TypeUtils;
+
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 8, 2008
+ * Time: 5:25:42 AM
+ * To change this template use File | Settings | File Templates.
+ */
 public class XAtomicStep extends XStep {
     private final static QName _name = new QName("", "name");
     private final static QName _namespace = new QName("", "namespace");
     private final static QName _value = new QName("", "value");
     private final static QName _type = new QName("", "type");
-    private final static QName cx_filemask = new QName("cx", XProcConstants.NS_CALABASH_EX,"filemask");
     private final static QName cx_item = new QName("cx", XProcConstants.NS_CALABASH_EX, "item");
 
     protected Hashtable<String, Vector<ReadablePipe>> inputs = new Hashtable<String, Vector<ReadablePipe>> ();
@@ -100,10 +104,9 @@ public class XAtomicStep extends XStep {
         super(runtime, step);
         this.parent = parent;
         // Innovimax: statistics
-        if (startTotalMem==0) { 
-          startTotalMem = Runtime.getRuntime().totalMemory();  
-          startedMemory = Runtime.getRuntime().freeMemory();
-        }            
+        if (startMemory==0) { 
+          startMemory = Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory(); 
+        }           
     }
 
     public XCompoundStep getParent() {
@@ -138,11 +141,10 @@ public class XAtomicStep extends XStep {
             pipe = new ReadableDocument(runtime);
         } else if (binding.getBindingType() == Binding.DOCUMENT_BINDING) {
             DocumentBinding dbinding = (DocumentBinding) binding;
-            String filemask = dbinding.getExtensionAttribute(cx_filemask);
-            pipe = new ReadableDocument(runtime, dbinding.getNode(), dbinding.getHref(), dbinding.getNode().getBaseURI().toASCIIString(), filemask);
+            pipe = runtime.getConfigurer().getXMLCalabashConfigurer().makeReadableDocument(runtime, dbinding);
         } else if (binding.getBindingType() == Binding.DATA_BINDING) {
             DataBinding dbinding = (DataBinding) binding;
-            pipe = new ReadableData(runtime, dbinding.getWrapper(), dbinding.getHref(), dbinding.getContentType());
+            pipe = runtime.getConfigurer().getXMLCalabashConfigurer().makeReadableData(runtime, dbinding);
         } else if (binding.getBindingType() == Binding.ERROR_BINDING) {
             XCompoundStep step = parent;
             while (! (step instanceof XCatch)) {
@@ -153,16 +155,17 @@ public class XAtomicStep extends XStep {
             throw new XProcException(binding.getNode(), "Unknown binding type: " + binding.getBindingType());
         }
 
-        pipe.setReader(stepContext, step);
+        pipe.setReader(stepContext,step);
         // Innovimax: set reader count
-        pipe.documents().addReader(pipe);          
+        DocumentSequence seq = pipe.documents(stepContext);
+        if (seq!=null) { seq.addReader(pipe);}
         return pipe;
     }
 
     // Innovimax: modified function
     protected void instantiateReaders(Step step) {
         for (Input input : step.inputs()) {
-            String port = input.getPort();            
+            String port = input.getPort();
             if (!port.startsWith("|")) {
                 Vector<ReadablePipe> readers = null;
                 if (inputs.containsKey(port)) {
@@ -189,13 +192,13 @@ public class XAtomicStep extends XStep {
             }
         }
         // Innovimax: set reader count
-        setReaderCount();        
+        setReaderCount();          
     }
 
-    public void instantiate(Step step) {        
-        instantiateReaders(step);        
-        
-        for (Output output : step.outputs()) {          
+    public void instantiate(Step step) {
+        instantiateReaders(step);
+
+        for (Output output : step.outputs()) {
             String port = output.getPort();
             XOutput xoutput = new XOutput(runtime, output);
             xoutput.setLogger(step.getLog(port));
@@ -204,8 +207,8 @@ public class XAtomicStep extends XStep {
             wpipe.canWriteSequence(output.getSequence());
             outputs.put(port, wpipe);
             finest(step.getNode(), step.getName() + " writes to " + wpipe + " for " + port);
-        }        
-        
+        }
+
         parent.addStep(this);
     }
 
@@ -305,52 +308,13 @@ public class XAtomicStep extends XStep {
         }
 
         clearOptions();
+
+        clearParameters();
     }
 
-    // Innovimax: replaced/modified by gorun()
-    //public void run() throws SaxonApiException {
+    // Innovimax: modified function
     public void gorun() throws SaxonApiException {
-        String className = runtime.getConfiguration().implementationClass(step.getType());
-        if (className == null) {
-            throw new UnsupportedOperationException("Misconfigured. No 'class' in configuration for " + step.getType());
-        }
-
-        // FIXME: This isn't really very secure...
-        if (runtime.getSafeMode() && !className.startsWith("com.xmlcalabash.")) {
-            throw XProcException.dynamicError(21);
-        }
-        
-        // Innovimax: search form stream class
-        String className2 = null;
-        if (isStreamed()) {            
-            QName type = new QName("ix", XProcConstants.NS_INNOVIMAX_EX, step.getType().getLocalName());            
-            className2 = runtime.getConfiguration().implementationClass(type);
-            if (className2 == null && runtime.isStreamAll()) {
-              throw new UnsupportedOperationException("Misconfigured. No 'class' in configuration for " + type);
-            }            
-        }           
-        if (className2 != null) {
-            className = className2;
-        } else {
-            setStreamed(false);
-        }        
-
-        XProcStep xstep = null;
-
-        try {        
-            Constructor constructor = Class.forName(className).getConstructor(XProcRuntime.class, this.getClass());                                    
-            xstep = (XProcStep) constructor.newInstance(runtime,this);                        
-        } catch (NoSuchMethodException nsme) {
-            throw new UnsupportedOperationException("No such method: " + className, nsme);
-        } catch (ClassNotFoundException cfne) {
-            throw new UnsupportedOperationException("Class not found: " + className, cfne);
-        } catch (InstantiationException ie) {
-            throw new UnsupportedOperationException("Instantiation error", ie);
-        } catch (IllegalAccessException iae) {
-            throw new UnsupportedOperationException("Illegal access error", iae);
-        } catch (InvocationTargetException ite) {
-            throw new UnsupportedOperationException("Invocation target exception", ite);
-        }
+        XProcStep xstep = runtime.getConfiguration().newStep(runtime, this);
 
         // If there's more than one reader, collapse them all into a single reader
         for (String port : inputs.keySet()) {
@@ -359,17 +323,17 @@ public class XAtomicStep extends XStep {
             if (!input.getParameterInput()) {
                 int readerCount = inputs.get(port).size();
                 if (readerCount > 1) {
-                    // Innovimax: aggregates multiple readers on same port  
+                    // Innovimax: aggregates multiple readers on same port                   
                     /*Pipe pipe = new Pipe(runtime);
-                    pipe.setWriter(stepContext, step);
-                    pipe.setReader(stepContext, step);
+                    pipe.setWriter(stepContext,step);
+                    pipe.setReader(stepContext,step);
                     pipe.canWriteSequence(true);
                     pipe.canReadSequence(input.getSequence());
-                    for (ReadablePipe reader : inputs.get(port)) {                        
+                    for (ReadablePipe reader : inputs.get(port)) {
                         if (reader.moreDocuments(stepContext)) {
                             while (reader.moreDocuments(stepContext)) {
                                 XdmNode doc = reader.read(stepContext);
-                                pipe.write(stepContext, doc);
+                                pipe.write(stepContext,doc);
                                 totalDocs++;
                             }
                         } else if (reader instanceof ReadableDocument) {
@@ -381,14 +345,14 @@ public class XAtomicStep extends XStep {
                     runtime.getTracer().debug(this,null,-1,pipe,null,"  STEP > CREATE AGGREGATE PIPE");       
                     pipe.setReader(stepContext, step);                    
                     pipe.canReadSequence(input.getSequence());
-                    for (ReadablePipe reader : inputs.get(port)) {
+                    for (ReadablePipe reader : inputs.get(port)) {                        
                         runtime.getTracer().debug(this,null,-1,reader,null,"  STEP > AGGREGATES PIPE");  
                         pipe.aggregates(stepContext, reader);
-                    }                      
-                    xstep.setInput(port, pipe);
+                    }                        
+                    xstep.setInput(port, pipe);                    
                 } else if (readerCount == 1) {
                     ReadablePipe pipe = inputs.get(port).firstElement();
-                    pipe.setReader(stepContext, step);
+                    pipe.setReader(stepContext,step);
                     // Innovimax: desactivated code
                     /*if (pipe.moreDocuments(stepContext)) {
                         totalDocs += pipe.documentCount(stepContext);
@@ -411,8 +375,6 @@ public class XAtomicStep extends XStep {
         // N.B. At this time, there are no compound steps that accept parameters or options,
         // so the order in which we calculate them doesn't matter. That will change if/when
         // there are such compound steps.
-
-        inScopeOptions = parent.getInScopeOptions();
         
         // Innovimax: calculate all the options
         /*DeclareStep decl = step.getDeclaration();
@@ -420,6 +382,7 @@ public class XAtomicStep extends XStep {
         for (QName name : step.getOptions()) {
             Option option = step.getOption(name);
             RuntimeValue value = computeValue(option);
+
             Option optionDecl = decl.getOption(name);
             String typeName = optionDecl.getType();
             XdmNode declNode = optionDecl.getNode();
@@ -431,12 +394,14 @@ public class XAtomicStep extends XStep {
                     TypeUtils.checkType(runtime, value.getString(),type,option.getNode());
                 }
             }
+
             xstep.setOption(name, value);
             inScopeOptions.put(name, value);
-        }*/       
+        }*/        
+        inScopeOptions = parent.getInScopeOptions();
         OptionsCalculator calculator = new OptionsCalculator(runtime,this,xstep,step,inScopeOptions);                      
-        calculator.exec(); 
-                        
+        calculator.exec();         
+
         xstep.reset();
         computeParameters(xstep);
 
@@ -452,44 +417,45 @@ public class XAtomicStep extends XStep {
         //XProcData data = runtime.getXProcData();
         //data.openFrame(this);
 
-        // Innovimax: execute step
-        //xstep.run();
+        // Innovimax: execute step        
         xstep.setStreamed(isStreamed());              
-        xstep.gorun();           
-        while (xstep.isRunning()) {
+        xstep.setStreamAll(isStreamAll());              
+        xstep.gorun();                           
+        while (xstep.isRunning()) {        
           Thread.yield();  
-        } 
+        }         
         
         // Innovimax: statistics        
-        long mem = Runtime.getRuntime().totalMemory() - startTotalMem + startedMemory - Runtime.getRuntime().freeMemory();
-        if (mem>maximumMemory) { maximumMemory = mem; }                  
+        long total = Runtime.getRuntime().totalMemory();
+        long free = Runtime.getRuntime().freeMemory();
+        if ((total-free)>maxMemory) { maxMemory = total-free; }        
 
         // Innovimax: don't manage cache in stream mode
-        if (!isStreamed()) {        
-            // FIXME: Is it sufficient to only do this for atomic steps?
-            String cache = getInheritedExtensionAttribute(XProcConstants.cx_cache);
-            if ("true".equals(cache)) {
-                for (String port : outputs.keySet()) {
-                    WritablePipe wpipe = outputs.get(port);
-                    // FIXME: Hack. There should be a better way...
-                    if (wpipe instanceof Pipe) {
-                        ReadablePipe rpipe = new Pipe(runtime, ((Pipe) wpipe).documents());
-                        rpipe.canReadSequence(true);
-                        rpipe.setReader(stepContext, step);
-                        while (rpipe.moreDocuments(stepContext)) {
-                            XdmNode doc = rpipe.read(stepContext);
-                            runtime.cache(doc, step.getNode().getBaseURI());
-                        }
-                    }
-                }
-            } else if (!"false".equals(cache) && cache != null) {
-                throw XProcException.dynamicError(19);
-            }
+        if (!isStreamed()) {  
+          // FIXME: Is it sufficient to only do this for atomic steps?
+          String cache = getInheritedExtensionAttribute(XProcConstants.cx_cache);
+          if ("true".equals(cache)) {
+              for (String port : outputs.keySet()) {
+                  WritablePipe wpipe = outputs.get(port);
+                  // FIXME: Hack. There should be a better way...
+                  if (wpipe instanceof Pipe) {
+                      ReadablePipe rpipe = new Pipe(runtime, ((Pipe) wpipe).documents(stepContext));
+                      rpipe.canReadSequence(true);
+                      rpipe.setReader(stepContext,step);
+                      while (rpipe.moreDocuments(stepContext)) {
+                          XdmNode doc = rpipe.read(stepContext);
+                          runtime.cache(doc, step.getNode().getBaseURI());
+                      }
+                  }
+              }
+          } else if (!"false".equals(cache) && cache != null) {
+              throw XProcException.dynamicError(19);
+          }
         }
 
         for (String port : outputs.keySet()) {
-            WritablePipe wpipe = outputs.get(port);            
-            wpipe.close(stepContext); // Indicate we're done            
+            WritablePipe wpipe = outputs.get(port);
+            wpipe.close(stepContext); // Indicate we're done
         }
 
         // Innovimax: XProcData desactivated
@@ -652,7 +618,7 @@ public class XAtomicStep extends XStep {
         
         // Innovimax: doc already tested
         if (!nodoc) {
-          try {
+          try {              
               if (var.getBinding().size() > 0) {
                   // Innovimax: check pipe already loaded
                   ReadablePipe pipe = null;
@@ -662,8 +628,8 @@ public class XAtomicStep extends XStep {
                       Binding binding = var.getBinding().firstElement();
                       pipe = getPipeFromBinding(binding);
                   }                
-                  runtime.getTracer().debug(this,null,-1,pipe,null,"    EVAL > COMPUTE DOM '"+var.getName()+"' ");
-                  doc = pipe.read(stepContext);                                
+                  runtime.getTracer().debug(this,null,-1,pipe,null,"    EVAL > COMPUTE DOM '"+var.getName()+"' ");                  
+                  doc = pipe.read(stepContext);
                   if (pipe.moreDocuments(stepContext)) {
                       throw XProcException.dynamicError(step, 8, "More than one document in context for parameter '" + var.getName() + "'");
                   }
@@ -671,9 +637,9 @@ public class XAtomicStep extends XStep {
           } catch (SaxonApiException sae) {
               throw new XProcException(sae);
           }
-        }
-
-        for (NamespaceBinding nsbinding : var.getNamespaceBindings()) {
+        }   
+                
+        for (NamespaceBinding nsbinding : var.getNamespaceBindings()) {            
             Hashtable<String,String> localBindings = new Hashtable<String,String> ();
 
             // Compute the namespaces associated with this binding
@@ -688,6 +654,7 @@ public class XAtomicStep extends XStep {
             } else if (nsbinding.getXPath() != null) {
                 try {
                     XPathCompiler xcomp = runtime.getProcessor().newXPathCompiler();
+                    xcomp.setBaseURI(step.getNode().getBaseURI());
 
                     for (QName varname : globals.keySet()) {
                         xcomp.declareVariable(varname);
@@ -752,28 +719,29 @@ public class XAtomicStep extends XStep {
                 if (nsBindings.containsKey(pfx) && !nsBindings.get(pfx).equals(localBindings.get(pfx))) {
                     throw XProcException.dynamicError(13);
                 }
-                nsBindings.put(pfx,localBindings.get(pfx));
+                nsBindings.put(pfx,localBindings.get(pfx));           
             }
         }
-
-        Vector<XdmItem> results = evaluateXPath(doc, nsBindings, var.getSelect(), globals);        
+                        
+        String select = var.getSelect();
+        Vector<XdmItem> results = evaluateXPath(doc, nsBindings, select, globals);
         String value = "";
 
         try {
             for (XdmItem item : results) {
                 if (item.isAtomicValue()) {
-                    value += item.getStringValue();
+                    value += item.getStringValue();                    
                 } else {
                     XdmNode node = (XdmNode) item;
                     if (node.getNodeKind() == XdmNodeKind.ATTRIBUTE) {
-                        value += node.getStringValue();
+                        value += node.getStringValue();                        
                     } else {
                         XdmDestination dest = new XdmDestination();
                         S9apiUtils.writeXdmValue(runtime,item,dest,null);
-                        value += dest.getXdmNode().getStringValue();
+                        value += dest.getXdmNode().getStringValue();                        
                     }
                 }
-            }
+            }                
         } catch (SaxonApiUncheckedException saue) {
             Throwable sae = saue.getCause();
             if (sae instanceof XPathException) {
@@ -799,7 +767,44 @@ public class XAtomicStep extends XStep {
                 TypeUtils.checkType(runtime, value, var.getTypeAsQName(), var.getNode());
             }
         }
-                
+
+        // Section 5.7.5 Namespaces on variables, options, and parameters
+        //
+        // If the select attribute was used to specify the value and it consisted of a single VariableReference
+        // (per [XPath 1.0] or [XPath 2.0], as appropriate), then the namespace bindings from the referenced
+        // option or variable are used.
+        Pattern varrefpat = Pattern.compile("^\\s*\\$([^\\s=]+)\\s*$");
+        Matcher varref = varrefpat.matcher(select);
+        if (varref.matches()) {
+            String varrefstr = varref.group(1);
+            QName varname = null;
+            if (varrefstr.contains(":")) {
+                String vpfx = varrefstr.substring(0, varrefstr.indexOf(":"));
+                String vlocal = varrefstr.substring(varrefstr.indexOf(":")+1);
+                String vns = nsBindings.get(vpfx);
+                varname = new QName(vpfx, vns, vlocal);
+            } else {
+                varname = new QName("", varrefstr);
+            }
+            RuntimeValue val = globals.get(varname);
+            nsBindings = val.getNamespaceBindings();
+        }
+
+        // Section 5.7.5 Namespaces on variables, options, and parameters
+        //
+        // If the select attribute was used to specify the value and it evaluated to a node-set, then the in-scope
+        // namespaces from the first node in the selected node-set (or, if it's not an element, its parent) are used.
+        if (results.size() > 0 && results.get(0) instanceof XdmNode) {
+            XdmNode node = (XdmNode) results.get(0);
+            nsBindings.clear();
+
+            XdmSequenceIterator nsIter = node.axisIterator(Axis.NAMESPACE);
+            while (nsIter.hasNext()) {
+                XdmNode ns = (XdmNode) nsIter.next();
+                nsBindings.put((ns.getNodeName()==null ? "" : ns.getNodeName().getLocalName()),ns.getStringValue());
+            }
+        }
+
         if (runtime.getAllowGeneralExpressions()) {
             return new RuntimeValue(value,results,var.getNode(),nsBindings);
         } else {
@@ -810,31 +815,32 @@ public class XAtomicStep extends XStep {
     protected Vector<XdmItem> evaluateXPath(XdmNode doc, Hashtable<String,String> nsBindings, String xpath, Hashtable<QName,RuntimeValue> globals) {
         Vector<XdmItem> results = new Vector<XdmItem> ();
         Hashtable<QName,RuntimeValue> boundOpts = new Hashtable<QName,RuntimeValue> ();
-
-        for (QName name : globals.keySet()) {
+        
+        for (QName name : globals.keySet()) {            
             RuntimeValue v = globals.get(name);
             if (v.initialized()) {
                 boundOpts.put(name, v);                
             }
-        }
-        
-        // Innovimax: select xpath functions        
-        xpath = XPathUtils.checkFunctions(this, xpath);        
+        }        
 
+        // Innovimax: select xpath functions        
+        xpath = XPathUtils.checkFunctions(this, xpath);                                   
+        
         try {
-            XPathCompiler xcomp = runtime.getProcessor().newXPathCompiler();
+            XPathCompiler xcomp = runtime.getProcessor().newXPathCompiler();            
+            xcomp.setBaseURI(step.getNode().getBaseURI());            
 
             for (QName varname : boundOpts.keySet()) {
-                xcomp.declareVariable(varname);
+                xcomp.declareVariable(varname);                                
             }
 
             for (String prefix : nsBindings.keySet()) {
-                xcomp.declareNamespace(prefix, nsBindings.get(prefix));
+                xcomp.declareNamespace(prefix, nsBindings.get(prefix));                                
             }
             XPathExecutable xexec = null;
-            try {
+            try {                
                 xexec = xcomp.compile(xpath);
-            } catch (SaxonApiException sae) {
+            } catch (SaxonApiException sae) {              
                 Throwable t = sae.getCause();
                 if (t instanceof XPathException) {
                     XPathException xe = (XPathException) t;
@@ -847,27 +853,27 @@ public class XAtomicStep extends XStep {
 
             XPathSelector selector = xexec.load();
 
-            for (QName varname : boundOpts.keySet()) {
+            for (QName varname : boundOpts.keySet()) {                
                 XdmValue value = null;
                 RuntimeValue rval = boundOpts.get(varname);
                 if (runtime.getAllowGeneralExpressions() && rval.hasGeneralValue()) {
                     value = rval.getValue();
                 } else {
                     value = rval.getUntypedAtomic(runtime);
-                }
-                selector.setVariable(varname,value);
+                }                
+                selector.setVariable(varname,value);                
             }
 
             if (doc != null) {
-                selector.setContextItem(doc);
+                selector.setContextItem(doc);                                                
             }
 
             try {
                 Iterator<XdmItem> values = selector.iterator();
-                while (values.hasNext()) {
+                while (values.hasNext()) {                    
                     results.add(values.next());
                 }
-            } catch (SaxonApiUncheckedException saue) {
+            } catch (SaxonApiUncheckedException saue) {              
                 Throwable sae = saue.getCause();
                 if (sae instanceof XPathException) {
                     XPathException xe = (XPathException) sae;
@@ -912,8 +918,9 @@ public class XAtomicStep extends XStep {
         for (Input input : step.inputs()) {            
             String port = input.getPort();            
             if (!port.startsWith("|")) {                
-                for (ReadablePipe pipe : inputs.get(port)) {
-                    pipe.documents().addReader(pipe);
+                for (ReadablePipe pipe : inputs.get(port)) {                    
+                    DocumentSequence seq = pipe.documents(stepContext);
+                    if (seq!=null) { seq.addReader(pipe);}
                 }                
             }      
         }                      
@@ -921,24 +928,26 @@ public class XAtomicStep extends XStep {
             Option option = step.getOption(name);
             if (option.getBinding().size() > 0) {         
                 Binding binding = option.getBinding().firstElement();   
-                ReadablePipe pipe = getPipeFromBinding(binding); 
-                pipe.documents().addReader(pipe);
+                ReadablePipe pipe = getPipeFromBinding(binding);                 
+                DocumentSequence seq = pipe.documents(stepContext);
+                if (seq!=null) { seq.addReader(pipe);}
             }              
         }
         for (Variable var : step.getVariables()) {
             if (var.getBinding().size() > 0) {         
                 Binding binding = var.getBinding().firstElement();   
-                ReadablePipe pipe = getPipeFromBinding(binding); 
-                pipe.documents().addReader(pipe);
+                ReadablePipe pipe = getPipeFromBinding(binding);                 
+                DocumentSequence seq = pipe.documents(stepContext);
+                if (seq!=null) { seq.addReader(pipe);}
             }         
         }      
     }
     
     // Innovimax: new function
-    public RuntimeValue computeVariable(ComputableValue var) {              
+    public RuntimeValue computeVariable(ComputableValue var) {          
         if (!isStreamed()) {
             return computeValue(var);            
-        }
+        }        
         
         Hashtable<String,String> nsBindings = new Hashtable<String,String> ();
         Hashtable<QName,RuntimeValue> globals = inScopeOptions;                
@@ -960,16 +969,16 @@ public class XAtomicStep extends XStep {
                 }
             }
         }
-        
+                
         if (doc == null) {         
             return computeValue(var, true);            
-        }        
+        }                       
         
         for (NamespaceBinding nsbinding : var.getNamespaceBindings()) {            
             Hashtable<String,String> localBindings = new Hashtable<String,String> ();
-
+            
             // Compute the namespaces associated with this binding            
-            if (nsbinding.getBinding() != null) {
+            if (nsbinding.getBinding() != null) {                
                 QName binding = new QName(nsbinding.getBinding(), nsbinding.getNode());
                 RuntimeValue nsv = globals.get(binding);
                 if (nsv == null) {
@@ -1002,11 +1011,11 @@ public class XAtomicStep extends XStep {
                 }
                 nsBindings.put(pfx,localBindings.get(pfx));
             }
-        }
+        }        
                 
         // evaluate variable
         VariableEvaluator evaluator = new VariableEvaluator(runtime, this, doc, var, nsBindings, globals);
-        Vector<XdmItem> results = evaluator.exec();         
+        Vector<XdmItem> results = evaluator.exec();                 
         String value = "";
         try {
             for (XdmItem item : results) {                
@@ -1022,7 +1031,7 @@ public class XAtomicStep extends XStep {
                         value += dest.getXdmNode().getStringValue();
                     }
                 }
-            }
+            }                       
         } catch (SaxonApiUncheckedException saue) {
             Throwable sae = saue.getCause();
             if (sae instanceof XPathException) {
@@ -1073,10 +1082,10 @@ public class XAtomicStep extends XStep {
         this.outputs.putAll(outputs);
     }    
     
-    // Innovimax: statistics
-    private static long startTotalMem = 0;  
-    private static long startedMemory = 0;
-    private static long maximumMemory = 0;           
-    public static long getMaximumMemory() { return maximumMemory; }
-    public static void resetMaximumMemory() { maximumMemory = 0; }                 
+    // Innovimax: statistics    
+    private static long startMemory = 0;
+    private static long maxMemory = 0;           
+    public static long getMaximumMemory() { return maxMemory; }
+    public static void resetMaximumMemory() { maxMemory = 0; }             
+        
 }

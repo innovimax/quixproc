@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -19,15 +19,21 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
-package com.xmlcalabash.core;
 
-import javax.xml.XMLConstants;
-import net.sf.saxon.s9api.QName;
+package com.xmlcalabash.core;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
+import javax.xml.XMLConstants;
+
+import net.sf.saxon.s9api.QName;
+
+/**
+ *
+ * @author ndw
+ */
 public class XProcConstants {
     public static final String XPROC_VERSION = initializeVersion();
     public static final String NS_XPROC = "http://www.w3.org/ns/xproc";
@@ -116,9 +122,13 @@ public class XProcConstants {
     public static final QName xs_QName = new QName("xs", NS_XMLSCHEMA, "QName");
     public static final QName xs_untypedAtomic = new QName("xs", NS_XMLSCHEMA, "untypedAtomic");
     public static final QName xs_string = new QName("xs", NS_XMLSCHEMA, "string");
+    public static final QName xs_anyURI = new QName("xs", NS_XMLSCHEMA, "anyURI");
     public static final QName xs_NCName = new QName("xs", NS_XMLSCHEMA, "NCName");
     public static final QName xs_boolean = new QName("xs", NS_XMLSCHEMA, "boolean");
     public static final QName xs_decimal = new QName("xs", NS_XMLSCHEMA, "decimal");
+    public static final QName xs_double = new QName("xs", NS_XMLSCHEMA, "double");
+    public static final QName xs_integer = new QName("xs", NS_XMLSCHEMA, "integer");
+    public static final QName xs_float = new QName("xs", NS_XMLSCHEMA, "float");
 
 
     /** Creates a new instance of XProcConstants */
@@ -126,6 +136,7 @@ public class XProcConstants {
     }
 
     private static String initializeVersion() {
+        String sver = "(for Saxon 9.4.x)";
         Properties config = new Properties();
         InputStream stream = null;
         try {
@@ -140,7 +151,7 @@ public class XProcConstants {
             if (major == null || minor == null || release == null) {
                 throw new UnsupportedOperationException("Invalid version.properties in JAR file!?");
             }
-            return major + "." + minor + "." + release;
+            return major + "." + minor + "." + release + " " + sver;
         } catch (IOException ioe) {
             throw new UnsupportedOperationException("No version.properties in JAR file!?");
         }
@@ -175,5 +186,5 @@ public class XProcConstants {
     public static final QName ix_mode = new QName(NS_INNOVIMAX_EX, "mode");  // Innovimax: new constant    
     public static final QName ix_loop = new QName(NS_INNOVIMAX_EX, "loop");  // Innovimax: new constant    
     public static final QName ix_packet = new QName(NS_INNOVIMAX_EX, "packet");  // Innovimax: new constant    
-    public static final QName ix_trace = new QName(NS_INNOVIMAX_EX, "trace");  // Innovimax: new constant    
+    public static final QName ix_trace = new QName(NS_INNOVIMAX_EX, "trace");  // Innovimax: new constant       
 }

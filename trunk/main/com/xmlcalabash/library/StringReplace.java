@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,18 +22,26 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.library;
 
-import java.util.Vector;
 import java.util.Hashtable;
+import java.util.Vector;
+
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XdmItem;
+import net.sf.saxon.s9api.XdmNode;
 
 import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.util.ProcessMatchingNodes;
-import com.xmlcalabash.util.ProcessMatch;
 import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.model.RuntimeValue;
-import net.sf.saxon.s9api.*;
 import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.ProcessMatch;
+import com.xmlcalabash.util.ProcessMatchingNodes;
 
+/**
+ *
+ * @author ndw
+ */
 public class StringReplace extends DefaultStep implements ProcessMatchingNodes {
     private static final QName _match = new QName("", "match");
     private static final QName _replace = new QName("", "replace");
@@ -75,7 +83,7 @@ public class StringReplace extends DefaultStep implements ProcessMatchingNodes {
         matcher = new ProcessMatch(runtime, this);
         matcher.match(source.read(stepContext), match);
 
-        result.write(stepContext, matcher.getResult());
+        result.write(stepContext,matcher.getResult());
     }
 
     public boolean processStartDocument(XdmNode node) throws SaxonApiException {
@@ -116,7 +124,7 @@ public class StringReplace extends DefaultStep implements ProcessMatchingNodes {
         matcher.addAttribute(node, newValue);
     }
 
-    private String computeReplacement(XdmNode node) {        
+    private String computeReplacement(XdmNode node) {
         Vector<XdmItem> values = evaluateXPath(node, rns, replace.getString(), atomicStepsGetNoInScopeOptions);
         String newValue = "";
         for (XdmItem item : values) {

@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -24,6 +24,10 @@ package com.xmlcalabash.model;
 
 import java.util.Vector;
 
+/**
+ *
+ * @author ndw
+ */
 public class Environment {
     private Vector<Step> visibleSteps = new Vector<Step> ();
     private Port defaultReadablePort = null;

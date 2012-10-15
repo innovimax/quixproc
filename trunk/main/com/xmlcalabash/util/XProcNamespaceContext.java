@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,14 +22,19 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.util;
 
-import net.sf.saxon.s9api.QName;
-
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.Vector;
+
 import javax.xml.XMLConstants;
 
+import net.sf.saxon.s9api.QName;
+
+/**
+ *
+ * @author ndw
+ */
 public class XProcNamespaceContext {
     Hashtable<String,String> nshash = new Hashtable<String,String> ();
     

@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,39 +21,46 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.model;
 
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.logging.Logger;
-import java.util.Stack;
-import java.util.HashSet;
-import java.util.Vector;
-import java.util.Hashtable;
-import java.util.Iterator;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
-import javax.xml.transform.sax.SAXSource;
-import javax.xml.XMLConstants;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.HashSet;
+import java.util.Hashtable;
+import java.util.Iterator;
+import java.util.Stack;
+import java.util.Vector;
+import java.util.logging.Logger;
 
-import com.xmlcalabash.extensions.UntilUnchanged;
-import net.sf.saxon.om.NodeInfo;
-import net.sf.saxon.om.NamePool;
+import javax.xml.XMLConstants;
+import javax.xml.transform.sax.SAXSource;
+
+import net.sf.saxon.s9api.Axis;
+import net.sf.saxon.s9api.DocumentBuilder;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
 import net.sf.saxon.s9api.XdmNodeKind;
-import net.sf.saxon.s9api.DocumentBuilder;
-import net.sf.saxon.s9api.Axis;
 import net.sf.saxon.s9api.XdmSequenceIterator;
-import net.sf.saxon.tree.iter.NamespaceIterator;
+
 import org.xml.sax.InputSource;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.util.RelevantNodes;
-import com.xmlcalabash.util.TypeUtils;
-import com.xmlcalabash.util.URIUtils;
-import com.xmlcalabash.util.S9apiUtils;
+import org.xml.sax.SAXException;
+import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.XMLReaderFactory;
+
 import com.xmlcalabash.core.XProcConstants;
 import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.extensions.UntilUnchanged;
+import com.xmlcalabash.util.RelevantNodes;
+import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.TypeUtils;
+import com.xmlcalabash.util.URIUtils;
 
+/**
+ *
+ * @author ndw
+ */
 public class Parser {
     // TODO: Make new QName() values throughout static
 
@@ -62,7 +69,6 @@ public class Parser {
     private static QName _href = new QName("href");
     private static QName _type = new QName("type");
     private static QName _version = new QName("version");
-    private static QName _select = new QName("select");
     private static QName err_XS0063 = new QName(XProcConstants.NS_XPROC_ERROR, "XS0063");
     private static QName p_use_when = new QName(XProcConstants.NS_XPROC, "use-when");
     private static QName _use_when = new QName("use-when");
@@ -95,8 +101,8 @@ public class Parser {
         if (node.getNodeKind() == XdmNodeKind.DOCUMENT) {
             node = S9apiUtils.getDocumentElement(node);
         }
-        DeclareStep decl = readDeclareStep(node, true);
-        parseDeclareStepBody(decl);
+        DeclareStep decl = readDeclareStep(node);
+        parseDeclareStepBodyPassTwo(decl);
         return decl;
     }
 
@@ -119,7 +125,7 @@ public class Parser {
         }
 
         loadingStandardLibrary = true;
-        PipelineLibrary library = readLibrary(root);
+        PipelineLibrary library = readLibrary(null, root);
         loadingStandardLibrary = false;
 
         return library;
@@ -155,24 +161,31 @@ public class Parser {
             throw new UnsupportedOperationException("Pipelines libraries must be p:library documents");
         }
 
-        if (!declStack.isEmpty()) {
-            declStack.peek().addImport(root.getBaseURI().toASCIIString());
-        } else {
+        if (declStack.isEmpty()) {
             topLevelImports.add(root.getBaseURI().toASCIIString());
+        } else {
+            declStack.peek().addImport(root.getBaseURI().toASCIIString());
         }
 
-        return readLibrary(root);
+        return readLibrary(null, root);
     }
 
     private XdmNode parse(InputStream instream, URI baseURI) throws SaxonApiException {
-        SAXSource source = new SAXSource(new InputSource(instream));
-        DocumentBuilder builder = runtime.getProcessor().newDocumentBuilder();
-        builder.setLineNumbering(true);
-        builder.setBaseURI(baseURI);
-        return builder.build(source);
+        try {
+            XMLReader reader = XMLReaderFactory.createXMLReader();
+            reader.setEntityResolver(runtime.getResolver());
+            SAXSource source = new SAXSource(reader, new InputSource(instream));
+            DocumentBuilder builder = runtime.getProcessor().newDocumentBuilder();
+            builder.setLineNumbering(true);
+            builder.setDTDValidation(false);
+            builder.setBaseURI(baseURI);
+            return builder.build(source);
+        } catch (SAXException se) {
+            throw new XProcException(se);
+        }
     }
 
-    private PipelineLibrary readLibrary(XdmNode node) {
+    private PipelineLibrary readLibrary(Step parent, XdmNode node) {
         if (!XProcConstants.p_library.equals(node.getNodeName())
                 && !XProcConstants.p_pipeline.equals(node.getNodeName())
                 && !XProcConstants.p_declare_step.equals(node.getNodeName())) {
@@ -187,24 +200,34 @@ public class Parser {
 
             library.setVersion(inheritedVersion(node));
 
+            // Read all the steps and make them available
             for (XdmNode snode : new RelevantNodes(runtime, node, Axis.CHILD)) {
-                Step substep = readStep(snode);
+                if (snode.getNodeName().equals(XProcConstants.p_import)) {
+                    // skip it
+                } else {
+                    Step substep = readStep(library, snode);
 
-                if (XProcConstants.p_import.equals(substep.getType())) {
+                    if (substep instanceof DeclareStep) {
+                        library.addStep((DeclareStep) substep);
+                    } else {
+                        throw new UnsupportedOperationException("A p:library must contain only p:pipeline and p:declare-steps.");
+                    }
+                }
+            }
+
+            for (XdmNode snode : new RelevantNodes(runtime, node, Axis.CHILD)) {
+                if (snode.getNodeName().equals(XProcConstants.p_import)) {
+                    Step substep = readStep(library, snode);
                     Import importElem = (Import) substep;
                     XdmNode root = importElem.getRoot();
                     // root will be null if the library has already been imported
                     if (root != null) {
-                        importElem.setLibrary(readLibrary(root));
+                        importElem.setLibrary(readLibrary(library, root));
                     }
-                } else if (substep instanceof DeclareStep) {
-                    library.addStep((DeclareStep) substep);
-                } else {
-                    throw new UnsupportedOperationException("A p:library must contain only p:pipeline and p:declare-steps.");
                 }
             }
         } else {
-            Step substep = readStep(node);
+            Step substep = readStep(library, node);
 
             if (XProcConstants.NS_CALABASH_EX.equals(substep.getDeclaredType().getNamespaceURI())
                     && (substep.getDeclaredType().getLocalName().startsWith("anonymousType"))) {
@@ -218,11 +241,8 @@ public class Parser {
             }
         }
 
-        for (QName type : library.declaredTypes()) {
-            DeclareStep step = library.getDeclaration(type);
-            parseDeclareStepBody(step);
-        }
-        
+        checkExtensionAttributes(node, library);
+
         return library;
     }
 
@@ -311,7 +331,7 @@ public class Parser {
                     || XProcConstants.p_iteration_source.equals(nodeName)
                     || XProcConstants.p_viewport_source.equals(nodeName)
                     || XProcConstants.p_xpath_context.equals(nodeName)) {
-                    Input input = readInput(node);
+                    Input input = readInput(step, node);
 
                     if (input.getPrimarySet() && input.getPrimary()) {
                         if (!allowPrimary) {
@@ -338,7 +358,7 @@ public class Parser {
                         step.addInput(input);
                     }
                 } else if (XProcConstants.p_output.equals(nodeName)) {
-                    Output output = readOutput(node);
+                    Output output = readOutput(step, node);
 
                     if (output.getPrimarySet() && output.getPrimary()) {
                         if (!allowPrimary) {
@@ -384,11 +404,11 @@ public class Parser {
                         }
                     }
 
-                    Option option = readOption(node);
+                    Option option = readOption(step, node);
                     option.setStep(step);
                     step.addOption(option);
                 } else if (XProcConstants.p_with_param.equals(nodeName)) {
-                    Parameter param = readParameter(node);
+                    Parameter param = readParameter(step, node);
                     param.setStep(step);
                     param.setPosition(pos++);
                     step.addParameter(param);
@@ -497,7 +517,7 @@ public class Parser {
             if (!XProcConstants.p_pipeline.equals(step.getType())
                     && !XProcConstants.p_declare_step.equals(step.getType())) {
                 while (rest.size() > 0 && XProcConstants.p_variable.equals(rest.get(0).getNodeName())) {
-                    Variable var = readVariable(rest.remove(0));
+                    Variable var = readVariable(step, rest.remove(0));
                     step.addVariable(var);
                 }
             }
@@ -506,7 +526,7 @@ public class Parser {
         return rest.size() == 0 ? null : rest;
     }    
 
-    private Input readInput(XdmNode node) {
+    private Input readInput(Step parent, XdmNode node) {
         QName nodeName = node.getNodeName();
         
         if (XProcConstants.p_input.equals(nodeName)) {
@@ -588,16 +608,18 @@ public class Parser {
         }
 
         for (XdmNode snode : new RelevantNodes(runtime, node, Axis.CHILD)) {
-            Binding binding = readBinding(snode);
+            Binding binding = readBinding(parent, snode);
             if (binding != null) {
                 input.addBinding(binding);
             }
         }
 
+        checkExtensionAttributes(node, input);
+
         return input;
     }
 
-    private Output readOutput(XdmNode node) {
+    private Output readOutput(Step parent, XdmNode node) {
         checkAttributes(node, new String[] { "port", "primary", "sequence" }, false);
 
         String port = checkNCName(node.getAttributeValue(new QName("port")));
@@ -615,16 +637,18 @@ public class Parser {
         output.setPrimary(primary);
 
         for (XdmNode snode : new RelevantNodes(runtime, node, Axis.CHILD)) {
-            Binding binding = readBinding(snode);
+            Binding binding = readBinding(parent, snode);
             if (binding != null) {
                 output.addBinding(binding);
             }
         }
-        
+
+        checkExtensionAttributes(node, output);
+
         return output;
     }
     
-    private Binding readBinding(XdmNode node) {
+    private Binding readBinding(Step parent, XdmNode node) {
         Binding binding = null;
 
         QName nodeName = node.getNodeName();
@@ -633,7 +657,7 @@ public class Parser {
         } else if (XProcConstants.p_document.equals(nodeName)) {
             binding = readDocument(node);
         } else if (XProcConstants.p_inline.equals(nodeName)) {
-            binding = readInline(node);
+            binding = readInline(parent, node);
         } else if (XProcConstants.p_empty.equals(nodeName)) {
             binding = readEmpty(node);
         } else if (XProcConstants.p_data.equals(nodeName)) {
@@ -641,6 +665,8 @@ public class Parser {
         } else {
             throw XProcException.staticError(44, node, "Unexpected in input: " + nodeName);
         }
+
+        checkExtensionAttributes(node, binding);
 
         return binding;
     }
@@ -670,6 +696,8 @@ public class Parser {
             XdmNode snode = iter.next();
             throw new IllegalArgumentException("Unexpected in pipe: " + snode.getNodeName());
         }
+
+        checkExtensionAttributes(node, pipe);
 
         return pipe;
     }
@@ -737,6 +765,8 @@ public class Parser {
             throw new IllegalArgumentException("Unexpected in document: " + snode.getNodeName());
         }
 
+        checkExtensionAttributes(node, doc);
+
         return doc;
     }
 
@@ -748,11 +778,13 @@ public class Parser {
         for (XdmNode snode : new RelevantNodes(runtime, node, Axis.CHILD)) {
             throw new IllegalArgumentException("Unexpected in empty: " + snode.getNodeName());
         }
-        
+
+        checkExtensionAttributes(node, empty);
+
         return empty;
     }
     
-    private InlineBinding readInline(XdmNode node) {
+    private InlineBinding readInline(Step parent, XdmNode node) {
         checkAttributes(node, new String[] { "exclude-inline-prefixes" }, false);
 
         InlineBinding inline = new InlineBinding(runtime, node);
@@ -770,59 +802,41 @@ public class Parser {
             inline.addNode(child);
         }
 
-        HashSet<String> excludeURIs = readExcludeInlinePrefixes(node, node.getAttributeValue(_exclude_inline_prefixes));
-        if (!declStack.isEmpty()) {
-            DeclareStep parent = declStack.peek();
-            for (String uri : parent.getExcludeInlineNamespaces()) {
-                excludeURIs.add(uri);
+        HashSet<String> excludeURIs = S9apiUtils.excludeInlinePrefixes(node, node.getAttributeValue(_exclude_inline_prefixes));
+        while (!(parent instanceof DeclareStep)) {
+            parent = parent.parent;
+        }
+
+        if (parent instanceof DeclareStep) {
+            HashSet<String> excluded = ((DeclareStep) parent).getExcludeInlineNamespaces();
+            if (excluded != null) {
+                for (String uri : excluded) {
+                    excludeURIs.add(uri);
+                }
             }
+        } else {
+            throw new UnsupportedOperationException("This can't happen: parent of inline is not a step!?");
         }
         
+        checkExtensionAttributes(node, inline);
+
         inline.excludeNamespaces(excludeURIs);
 
         return inline;
     }
 
-    private HashSet<String> readExcludeInlinePrefixes(XdmNode node, String prefixList) {
-        HashSet<String> excludeURIs = new HashSet<String> ();
-        excludeURIs.add(XProcConstants.NS_XPROC);
-
-        if (prefixList != null) {
-            // FIXME: Surely there's a better way to do this?
-            NodeInfo inode = node.getUnderlyingNode();
-            NamePool pool = inode.getNamePool();
-            int inscopeNS[] = NamespaceIterator.getInScopeNamespaceCodes(inode);
-
-            for (String pfx : prefixList.split("\\s+")) {
-                boolean found = false;
-
-                for (int pos = 0; pos < inscopeNS.length; pos++) {
-                    int ns = inscopeNS[pos];
-                    String nspfx = pool.getPrefixFromNamespaceCode(ns);
-                    String nsuri = pool.getURIFromNamespaceCode(ns);
-
-                    if (pfx.equals(nspfx) || ("#default".equals(pfx) && "".equals(nspfx)) || "#all".equals(pfx)) {
-                        found = true;
-                        excludeURIs.add(nsuri);
-                    }
-                }
-
-                if (!found) {
-                    throw new XProcException(XProcConstants.staticError(57), node, "No binding for '" + pfx + ":'");
-                }
-            }
-        }
-
-        return excludeURIs;
-    }
-
-    private Option readOption(XdmNode node) {
+  
+    private Option readOption(Step parent, XdmNode node) {
         checkAttributes(node, new String[] { "name", "required", "select" }, false);
 
         String name = node.getAttributeValue(new QName("name"));
         String required = node.getAttributeValue(new QName("required"));
         String select = node.getAttributeValue(new QName("select"));
         String type = node.getAttributeValue(XProcConstants.cx_type);
+
+        if (name == null) {
+            throw XProcException.staticError(38, node, "Attribute \"name\" required on p:with-option");
+        }
 
         QName oname;
         if (name.contains(":")) {
@@ -845,12 +859,14 @@ public class Parser {
         option.setSelect(select);
         option.setType(type, node);
 
-        readNamespaceBindings(option, node, select);
+        readNamespaceBindings(parent, option, node, select);
+
+        checkExtensionAttributes(node, option);
 
         return option;
     }
 
-    private Parameter readParameter(XdmNode node) {
+    private Parameter readParameter(Step parent, XdmNode node) {
         checkAttributes(node, new String[] { "port", "name", "select" }, false);
 
         String name = node.getAttributeValue(new QName("name"));
@@ -863,15 +879,24 @@ public class Parser {
 
         Parameter parameter = new Parameter(runtime, node);
         parameter.setPort(port);
-        parameter.setName(new QName(name, node));
+
+        // If the name contains a colon, get the namespace from the node, otherwise it's in no namespace
+        if (name.contains(":")) {
+            parameter.setName(new QName(name, node));
+        } else {
+            parameter.setName(new QName("", name));
+        }
+
         parameter.setSelect(select);
 
-        readNamespaceBindings(parameter, node, select);
+        readNamespaceBindings(parent, parameter, node, select);
+
+        checkExtensionAttributes(node, parameter);
 
         return parameter;
     }
 
-    private Variable readVariable(XdmNode node) {
+    private Variable readVariable(Step parent, XdmNode node) {
         checkAttributes(node, new String[] { "name", "select" }, false);
 
         String name = node.getAttributeValue(new QName("name"));
@@ -887,12 +912,14 @@ public class Parser {
         variable.setName(oname);
         variable.setSelect(select);
 
-        readNamespaceBindings(variable, node, select);
+        readNamespaceBindings(parent, variable, node, select);
+
+        checkExtensionAttributes(node, variable);
 
         return variable;
     }
 
-    private void readNamespaceBindings(EndPoint endpoint, XdmNode node, String select) {
+    private void readNamespaceBindings(Step parent, EndPoint endpoint, XdmNode node, String select) {
         boolean hadNamespaceBinding = false;
         for (XdmNode snode : new RelevantNodes(runtime, node, Axis.CHILD)) {
             QName nodeName = snode.getNodeName();
@@ -932,7 +959,7 @@ public class Parser {
                     throw XProcException.staticError(44, snode, "p:namespaces must be empty");
                 }
             } else {
-                Binding binding = readBinding(snode);
+                Binding binding = readBinding(parent, snode);
                 if (binding != null) {
                     if (XProcConstants.p_option.equals(node.getNodeName())) {
                         throw XProcException.staticError(44, node, "No bindings allowed.");
@@ -1049,6 +1076,8 @@ public class Parser {
             throw XProcException.staticError(44, node, "p:serialization must be empty.");
         }
 
+        checkExtensionAttributes(node, serial);
+
         return serial;
     }
 
@@ -1077,39 +1106,48 @@ public class Parser {
         for (XdmNode snode : new RelevantNodes(runtime, node, Axis.CHILD)) {
             throw XProcException.staticError(44, node, "p:log must be empty");
         }
-        
+
+        checkExtensionAttributes(node, log);
+
         return log;
     }
 
-    private Step readStep(XdmNode node) {
+    private Step readStep(Step parent, XdmNode node) {
         QName stepType = node.getNodeName();
 
         if (XProcConstants.p_declare_step.equals(stepType)
                 || XProcConstants.p_pipeline.equals(stepType)) {
-            return readDeclareStep(node, true);
+            return readDeclareStep(node);
         } else if (XProcConstants.p_import.equals(stepType)) {
             return readImport(node);
         } else if (XProcConstants.p_for_each.equals(stepType)) {
-            return readForEach(node);
+            return readForEach(parent, node);
         } else if (XProcConstants.p_viewport.equals(stepType)) {
-            return readViewport(node);
+            return readViewport(parent, node);
         } else if (XProcConstants.p_choose.equals(stepType)) {
-            return readChoose(node);
+            return readChoose(parent, node);
         } else if (XProcConstants.p_when.equals(stepType)) {
-            return readWhen(node);
+            return readWhen(parent, node);
         } else if (XProcConstants.p_otherwise.equals(stepType)) {
-            return readOtherwise(node);
+            return readOtherwise(parent, node);
         } else if (XProcConstants.p_group.equals(stepType)) {
-            return readGroup(node);
+            return readGroup(parent, node);
         } else if (XProcConstants.p_try.equals(stepType)) {
-            return readTry(node);
+            return readTry(parent, node);
         } else if (XProcConstants.p_catch.equals(stepType)) {
-            return readCatch(node);
+            return readCatch(parent, node);
         } else if (XProcConstants.cx_until_unchanged.equals(stepType)) {
-            return readUntilUnchanged(node);
+            return readUntilUnchanged(parent, node);
         }
 
         DeclareStep decl= null;
+        if (parent == null) {
+            decl = runtime.getBuiltinDeclaration(stepType);
+        } else {
+            decl = ((DeclareStep) parent).getStepDeclaration(stepType);
+        }
+        
+        /*
         if (declStack.isEmpty()) {
             decl = runtime.getBuiltinDeclaration(stepType);
         } else {
@@ -1119,6 +1157,7 @@ public class Parser {
                 throw new XProcException(node, ex.getMessage(), ex);
             }
         }
+        */
 
         if (decl == null) {
             throw XProcException.staticError(44, node, "Not a step: " + stepType);
@@ -1131,6 +1170,7 @@ public class Parser {
 
         Step step = new Step(runtime, node, stepType, stepName);
         step.setDeclaration(decl);
+        step.parent = parent;
 
         boolean pStep = XProcConstants.NS_XPROC.equals(node.getNodeName().getNamespaceURI());
 
@@ -1169,10 +1209,11 @@ public class Parser {
             }
             throw XProcException.staticError(44, rest.get(0), message);
         }
+
         return step;
     }
 
-    private DeclareStep readDeclareStep(XdmNode node, boolean declare) {
+    private DeclareStep readDeclareStep(XdmNode node) {
         QName name = node.getNodeName();
 
         if (!name.equals(XProcConstants.p_declare_step) && !name.equals(XProcConstants.p_pipeline)) {
@@ -1199,14 +1240,13 @@ public class Parser {
         }
 
         if (XProcConstants.NS_XPROC.equals(type.getNamespaceURI())) {
-            // If declStack is empty, then this is ok. It's also OK if we're reading from an XProc library
-            if (declStack.size() != 0) {
+            // If declStack is empty, then this is ok.
+            if (!declStack.isEmpty()) {
                 throw XProcException.staticError(25, node, "Additional steps must not be declared in the XProc namespace.");
             }
         }
 
         DeclareStep step = new DeclareStep(runtime, node, stepName);
-
         step.setVersion(inheritedVersion(node));
 
         boolean psviRequired = booleanAttr(node.getAttributeValue(new QName("psvi-required")));
@@ -1237,7 +1277,7 @@ public class Parser {
         step.setPsviRequired(psviRequired);
         step.setXPathVersion(xpathVersion);
 
-        HashSet<String> excludeURIs = readExcludeInlinePrefixes(node, node.getAttributeValue(_exclude_inline_prefixes));
+        HashSet<String> excludeURIs = S9apiUtils.excludeInlinePrefixes(node, node.getAttributeValue(_exclude_inline_prefixes));
         if (!declStack.isEmpty()) {
             DeclareStep parent = declStack.peek();
             for (String uri : parent.getExcludeInlineNamespaces()) {
@@ -1248,7 +1288,7 @@ public class Parser {
         if (node.getParent() != null) {
             XdmNode parent = node.getParent();
             if (XProcConstants.p_library.equals(parent.getNodeName()) && parent.getAttributeValue(_exclude_inline_prefixes) != null) {
-                HashSet<String> pexcl = readExcludeInlinePrefixes(parent, parent.getAttributeValue(_exclude_inline_prefixes));
+                HashSet<String> pexcl = S9apiUtils.excludeInlinePrefixes(node, node.getAttributeValue(_exclude_inline_prefixes));
                 for (String uri : pexcl) {
                     excludeURIs.add(uri);
                 }
@@ -1279,20 +1319,19 @@ public class Parser {
         }
 
         Vector<XdmNode> rest = readSignature(step);
-
         step.setAtomic(rest == null);
 
-        if (declare) {
-            if (declStack.isEmpty()) {
-                runtime.declareStep(step.getDeclaredType(), step);
-            } else {
-                declStack.peek().declareStep(step.getDeclaredType(), step);
-            }
+        if (declStack.isEmpty()) {
+            runtime.declareStep(step.getDeclaredType(), step);
+        } else {
+            declStack.peek().declareStep(step.getDeclaredType(), step);
         }
 
         if (!declStack.isEmpty()) {
             step.setParentDecl(declStack.peek());
         }
+        
+        declStack.push(step);
 
         // Check that we have legitimate bindings
         for (Input input : step.inputs()) {
@@ -1319,17 +1358,66 @@ public class Parser {
             }
         }
 
+        Vector<XdmNode> steps = new Vector<XdmNode>();
+
+        if (rest != null) {
+            for (XdmNode substepNode : rest) {
+                if (XProcConstants.p_variable.equals(substepNode.getNodeName())) {
+                    Variable var = readVariable(step, substepNode);
+                    step.addVariable(var);
+                } else {
+                    if ((XProcConstants.p_declare_step.equals(substepNode.getNodeName()))
+                            || XProcConstants.p_pipeline.equals(substepNode.getNodeName())) {
+                        DeclareStep dstep = (DeclareStep) readStep(step, substepNode);
+                        // It's not really part of the pipeline, but we need to parse it
+                        // to make sure it gets added to the available steps
+                    } else if (XProcConstants.p_import.equals(substepNode.getNodeName())) {
+                        Import importElem = (Import) readStep(step, substepNode);
+                        XdmNode root = importElem.getRoot();
+                        // root will be null if the library has already been imported
+                        if (root != null) {
+                            importElem.setLibrary(readLibrary(step, root));
+                        }
+                    } else {
+                        steps.add(substepNode);
+                    }
+                }
+            }
+
+            step.checkPrimaryIO();
+            rest = steps;
+        }
+
         step.setXmlContent(rest);
 
+        declStack.pop();
+
         return step;
+    }
+
+    private void parseDeclareStepBodyPassTwo(DeclareStep step) {
+        step.setBodyParsed(true);
+
+        for (DeclareStep substep : step.getStepDeclarations()) {
+            parseDeclareStepBodyPassTwo(substep);
+        }
+        
+        Vector<XdmNode> rest = step.getXmlContent();
+
+        if (rest != null) {
+            for (XdmNode substepNode : rest) {
+                Step substep = readStep(step, substepNode);
+                step.addStep(substep);
+            }
+        }
     }
 
     private Double inheritedVersion(XdmNode node) {
         XdmNode parent = node.getParent();
 
         if (XProcConstants.p_declare_step.equals(node.getNodeName())
-            || XProcConstants.p_pipeline.equals(node.getNodeName())
-            || XProcConstants.p_library.equals(node.getNodeName())) {
+                || XProcConstants.p_pipeline.equals(node.getNodeName())
+                || XProcConstants.p_library.equals(node.getNodeName())) {
             String version = node.getAttributeValue(_version);
             if (version != null) {
                 TypeUtils.checkType(runtime, version, XProcConstants.xs_decimal, node, err_XS0063);
@@ -1342,48 +1430,6 @@ public class Parser {
         } else {
             return inheritedVersion(parent);
         }
-    }
-
-    private void parseDeclareStepBody(DeclareStep step) {
-        step.setBodyParsed(true);
-
-        Vector<XdmNode> rest = step.getXmlContent();
-
-        declStack.push(step);
-
-        if (rest != null) {
-            for (XdmNode substepNode : rest) {
-                if (XProcConstants.p_variable.equals(substepNode.getNodeName())) {
-                    Variable var = readVariable(substepNode);
-                    step.addVariable(var);
-                } else {
-                    Step substep = readStep(substepNode);
-
-                    if (XProcConstants.p_declare_step.equals(substep.stepType)) {
-                        // nop, this isn't really in the pipeline
-                    } else if (XProcConstants.p_import.equals(substep.stepType)) {
-                        Import importElem = (Import) substep;
-                        XdmNode root = importElem.getRoot();
-                        // root will be null if the library has already been imported
-                        if (root != null) {
-                            importElem.setLibrary(readLibrary(root));
-                        }
-                    } else {
-                        step.addStep(substep);
-                    }
-                }
-            }
-
-            step.checkPrimaryIO();
-        }
-
-        for (DeclareStep subdecl : step.declaredSteps.values()) {
-            if (!subdecl.getBodyParsed()) {
-                parseDeclareStepBody(subdecl);
-            }
-        }
-        
-        declStack.pop();
     }
 
     private Import readImport(XdmNode node) {
@@ -1442,12 +1488,12 @@ public class Parser {
         }
 
         importElem.setRoot(root);
+        checkExtensionAttributes(node, importElem);
 
         return importElem;
     }
 
-    // Innovimax: modified function
-    private ForEach readForEach(XdmNode node) {
+    private ForEach readForEach(Step parent, XdmNode node) {
         QName name = node.getNodeName();
         if (!XProcConstants.p_for_each.equals(name)) {
             throw new UnsupportedOperationException("Can't parse " + name + " as a pipeline!");
@@ -1458,9 +1504,10 @@ public class Parser {
         String stepName = checkNCName(node.getAttributeValue(_name));
 
         ForEach step = new ForEach(runtime, node, stepName);
-        
-        // Innovimax: store ext attributes
-        storeExtAttributes(node,step);        
+        checkExtensionAttributes(node, step);
+        // FIXME: Do I really need parentDecl and parent?
+        step.setParentDecl((DeclareStep) parent);
+        step.parent = parent;
 
         Vector<XdmNode> rest = readSignature(step);
 
@@ -1469,7 +1516,7 @@ public class Parser {
         }
 
         for (XdmNode substepNode : rest) {
-            Step substep = readStep(substepNode);
+            Step substep = readStep(step, substepNode);
             step.addStep(substep);
         }
 
@@ -1477,8 +1524,8 @@ public class Parser {
         return step;
     }
 
-    // Innovimax: modified function
-    private UntilUnchanged readUntilUnchanged(XdmNode node) {
+
+    private UntilUnchanged readUntilUnchanged(Step parent, XdmNode node) {
         QName name = node.getNodeName();
         if (!XProcConstants.cx_until_unchanged.equals(name)) {
             throw new UnsupportedOperationException("Can't parse " + name + " as a cx:until-unchanged!");
@@ -1489,9 +1536,9 @@ public class Parser {
         String stepName = checkNCName(node.getAttributeValue(_name));
 
         UntilUnchanged step = new UntilUnchanged(runtime, node, stepName);
-        
-        // Innovimax: store ext attributes
-        storeExtAttributes(node,step);        
+        checkExtensionAttributes(node, step);
+        step.setParentDecl((DeclareStep) parent);
+        step.parent = parent;
 
         Vector<XdmNode> rest = readSignature(step);
 
@@ -1500,7 +1547,7 @@ public class Parser {
         }
 
         for (XdmNode substepNode : rest) {
-            Step substep = readStep(substepNode);
+            Step substep = readStep(step, substepNode);
             step.addStep(substep);
         }
 
@@ -1508,8 +1555,7 @@ public class Parser {
         return step;
     }
 
-    // Innovimax: modified function
-    private Viewport readViewport(XdmNode node) {
+    private Viewport readViewport(Step parent, XdmNode node) {
         QName name = node.getNodeName();
         if (!XProcConstants.p_viewport.equals(name)) {
             throw new UnsupportedOperationException("Can't parse " + name + " as a pipeline!");
@@ -1521,10 +1567,11 @@ public class Parser {
         RuntimeValue match = new RuntimeValue(node.getAttributeValue(new QName("match")), node);
 
         Viewport step = new Viewport(runtime, node, stepName);
+        checkExtensionAttributes(node, step);
+        step.setParentDecl((DeclareStep) parent);
+        step.parent = parent;
+
         step.setMatch(match);
-        
-        // Innovimax: store ext attributes
-        storeExtAttributes(node,step);        
 
         Vector<XdmNode> rest = readSignature(step);
 
@@ -1533,7 +1580,7 @@ public class Parser {
         }
 
         for (XdmNode substepNode : rest) {
-            Step substep = readStep(substepNode);
+            Step substep = readStep(step, substepNode);
             step.addStep(substep);
         }
 
@@ -1541,15 +1588,14 @@ public class Parser {
         return step;
     }
 
-    // Innovimax: modified function
-    private Choose readChoose(XdmNode node) {
+    private Choose readChoose(Step parent, XdmNode node) {
         checkAttributes(node, new String[] { "name" }, false);
         String stepName = checkNCName(node.getAttributeValue(_name));
 
         Choose step = new Choose(runtime, node, stepName);
-        
-        // Innovimax: store ext attributes
-        storeExtAttributes(node,step);        
+        checkExtensionAttributes(node, step);
+        step.setParentDecl((DeclareStep) parent);
+        step.parent = parent;
 
         Vector<XdmNode> rest = readSignature(step);
 
@@ -1559,10 +1605,10 @@ public class Parser {
 
         for (XdmNode child : rest) {
             if (XProcConstants.p_when.equals(child.getNodeName())) {
-                When substep = readWhen(child);
+                When substep = readWhen(step, child);
                 step.addStep(substep);
             } else if (XProcConstants.p_otherwise.equals(child.getNodeName())) {
-                Otherwise substep = readOtherwise(child);
+                Otherwise substep = readOtherwise(step, child);
                 step.addStep(substep);
             } else {
                 throw new UnsupportedOperationException("Not valid in a choose: " + child.getNodeName());
@@ -1573,18 +1619,17 @@ public class Parser {
         return step;
     }
 
-    // Innovimax: modified function
-    private When readWhen(XdmNode node) {
+    private When readWhen(Step parent, XdmNode node) {
         checkAttributes(node, new String[] { "test" }, false);
 
         String stepName = checkNCName(node.getAttributeValue(px_name));
         String testExpr = node.getAttributeValue(new QName("test"));
 
         When step = new When(runtime, node, stepName);
+        checkExtensionAttributes(node, step);
         step.setTest(testExpr);
-        
-        // Innovimax: store ext attributes
-        storeExtAttributes(node,step);        
+        step.setParentDecl((DeclareStep) parent);
+        step.parent = parent;
 
         Vector<XdmNode> rest = readSignature(step);
 
@@ -1593,7 +1638,7 @@ public class Parser {
         }
 
         for (XdmNode substepNode : rest) {
-            Step substep = readStep(substepNode);
+            Step substep = readStep(step, substepNode);
             step.addStep(substep);
         }
 
@@ -1601,16 +1646,15 @@ public class Parser {
         return step;
     }
 
-    // Innovimax: modified function
-    private Otherwise readOtherwise(XdmNode node) {
+    private Otherwise readOtherwise(Step parent, XdmNode node) {
         checkAttributes(node, null, false);
 
         String stepName = checkNCName(node.getAttributeValue(px_name));
 
         Otherwise step = new Otherwise(runtime, node, stepName);
-        
-        // Innovimax: store ext attributes
-        storeExtAttributes(node,step);        
+        checkExtensionAttributes(node, step);
+        step.setParentDecl((DeclareStep) parent);
+        step.parent = parent;
 
         Vector<XdmNode> rest = readSignature(step);
 
@@ -1619,7 +1663,7 @@ public class Parser {
         }
 
         for (XdmNode substepNode : rest) {
-            Step substep = readStep(substepNode);
+            Step substep = readStep(step, substepNode);
             step.addStep(substep);
         }
 
@@ -1627,16 +1671,15 @@ public class Parser {
         return step;
     }
 
-    // Innovimax: modified function
-    private Group readGroup(XdmNode node) {
+    private Group readGroup(Step parent, XdmNode node) {
         checkAttributes(node, new String[] { "name" }, false);
 
         String stepName = checkNCName(node.getAttributeValue(_name));
 
         Group step = new Group(runtime, node, stepName);
-        
-        // Innovimax: store ext attributes
-        storeExtAttributes(node,step);        
+        checkExtensionAttributes(node, step);
+        step.setParentDecl((DeclareStep) parent);
+        step.parent = parent;
 
         Vector<XdmNode> rest = readSignature(step);
 
@@ -1645,7 +1688,7 @@ public class Parser {
         }
 
         for (XdmNode substepNode : rest) {
-            Step substep = readStep(substepNode);
+            Step substep = readStep(step, substepNode);
             step.addStep(substep);
         }
 
@@ -1653,16 +1696,15 @@ public class Parser {
         return step;
     }
 
-    // Innovimax: modified function
-    private Try readTry(XdmNode node) {
+    private Try readTry(Step parent, XdmNode node) {
         checkAttributes(node, new String[] { "name" }, false);
 
         String stepName = checkNCName(node.getAttributeValue(_name));
 
         Try step = new Try(runtime, node, stepName);
-        
-        // Innovimax: store ext attributes
-        storeExtAttributes(node,step);        
+        checkExtensionAttributes(node, step);
+        step.setParentDecl((DeclareStep) parent);
+        step.parent = parent;
 
         Vector<XdmNode> rest = readSignature(step);
 
@@ -1671,7 +1713,7 @@ public class Parser {
         }
 
         for (XdmNode substepNode : rest) {
-            Step substep = readStep(substepNode);
+            Step substep = readStep(step, substepNode);
             step.addStep(substep);
         }
 
@@ -1679,16 +1721,15 @@ public class Parser {
         return step;
     }
 
-    // Innovimax: modified function
-    private Catch readCatch(XdmNode node) {
+    private Catch readCatch(Step parent, XdmNode node) {
         checkAttributes(node, new String[] { "name" }, false);
 
         String stepName = checkNCName(node.getAttributeValue(_name));
 
         Catch step = new Catch(runtime, node, stepName);
-        
-        // Innovimax: store ext attributes
-        storeExtAttributes(node,step);        
+        checkExtensionAttributes(node, step);
+        step.setParentDecl((DeclareStep) parent);
+        step.parent = parent;
 
         Vector<XdmNode> rest = readSignature(step);
 
@@ -1704,7 +1745,7 @@ public class Parser {
         }
 
         for (XdmNode substepNode : rest) {
-            Step substep = readStep(substepNode);
+            Step substep = readStep(step, substepNode);
             step.addStep(substep);
         }
 
@@ -1801,24 +1842,5 @@ public class Parser {
             }
         }
         return name;
-    }
-    
-    //*************************************************************************
-    //*************************************************************************        
-    //*************************************************************************
-    // INNOVIMAX IMPLEMENTATION
-    //*************************************************************************
-    //*************************************************************************
-    //*************************************************************************                         
-    
-    // Innovimax: new function
-    private void storeExtAttributes(XdmNode node, Step step) {
-        // Store extension attributes
-        for (XdmNode attr : new RelevantNodes(runtime, node, Axis.ATTRIBUTE)) {
-            QName aname = attr.getNodeName();
-            if (!XMLConstants.NULL_NS_URI.equals(aname.getNamespaceURI())) {
-                step.addExtensionAttribute(attr);
-            }
-        }      
     }
 }

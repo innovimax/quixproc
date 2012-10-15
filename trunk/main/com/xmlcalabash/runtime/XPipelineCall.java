@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,17 +21,28 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.runtime;
 
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.model.*;
-import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.QName;
+import innovimax.quixproc.codex.util.OptionsCalculator;
 
 import java.util.HashSet;
 
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
 
-import innovimax.quixproc.codex.util.OptionsCalculator;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.model.DeclareStep;
+import com.xmlcalabash.model.Parameter;
+import com.xmlcalabash.model.RuntimeValue;
+import com.xmlcalabash.model.Step;
+// Innovimax: new import
 
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 8, 2008
+ * Time: 5:25:42 AM
+ * To change this template use File | Settings | File Templates.
+ */
 public class XPipelineCall extends XAtomicStep {
     private DeclareStep decl = null;
 
@@ -48,11 +59,9 @@ public class XPipelineCall extends XAtomicStep {
         return parent;
     }
 
-
-    // Innovimax: replaced/modified by gorun()
-    //public void run() throws SaxonApiException {
-    public void gorun() throws SaxonApiException {  
-        info(null, "Running " + step.getType());
+    // Innovimax: modified function
+    public void gorun() throws SaxonApiException {
+        fine(null, "Running " + step.getType());
 
         decl.setup();
 
@@ -63,28 +72,32 @@ public class XPipelineCall extends XAtomicStep {
         XRootStep root = new XRootStep(runtime);
         XPipeline newstep = new XPipeline(runtime, decl, root);
         // Innovimax: propagate step context
-        newstep.stepContext = stepContext;        
+        newstep.stepContext = stepContext;         
 
         newstep.instantiate(decl);
-        
-        inScopeOptions = parent.getInScopeOptions();          
+
+        // Calculate all the options
+        inScopeOptions = parent.getInScopeOptions();
+
         HashSet<QName> pipeOpts = new HashSet<QName> ();
         for (QName name : newstep.step.getOptions()) {
             pipeOpts.add(name);
-        } 
-                
-        // Innovimax: calculate all the options                                  
+        }
+
+        // Innovimax: calculate all the options  
         /*for (QName name : step.getOptions()) {
             Option option = step.getOption(name);
             RuntimeValue value = computeValue(option);
             setOption(name, value);
+
             if (pipeOpts.contains(name)) {
                 newstep.passOption(name, value);
             }
+
             inScopeOptions.put(name, value);
-        }*/       
+        }*/
         OptionsCalculator ocalculator = new OptionsCalculator(runtime,this,step,inScopeOptions,newstep,pipeOpts);
-        ocalculator.exec();            
+        ocalculator.exec();          
 
         for (QName name : step.getParameters()) {
             Parameter param = step.getParameter(name);
@@ -108,7 +121,8 @@ public class XPipelineCall extends XAtomicStep {
         //newstep.run();
         Thread t = new Thread(newstep);
         runtime.getTracer().debug(this,null,-1,null,null,"  PIPELINE CALL > RUN PIPELINE THREAD");        
-        t.start();  
+        t.start();          
+
     }
     
     //*************************************************************************
@@ -130,5 +144,6 @@ public class XPipelineCall extends XAtomicStep {
     // Innovimax: new function
     private void cloneInstantiation(DeclareStep decl) {
         this.decl = decl;        
-    }       
+    }     
+    
 }

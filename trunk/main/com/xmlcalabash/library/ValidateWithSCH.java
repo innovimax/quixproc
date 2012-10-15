@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,31 +21,50 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.library;
 
-import net.sf.saxon.s9api.*;
-import net.sf.saxon.Configuration;
-import net.sf.saxon.sxpath.IndependentContext;
-import net.sf.saxon.trans.XPathException;
-import net.sf.saxon.functions.FunctionLibraryList;
-import net.sf.saxon.functions.SystemFunctionLibrary;
-import net.sf.saxon.functions.ConstructorFunctionLibrary;
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.runtime.XAtomicStep;
-import com.xmlcalabash.util.S9apiUtils;
-import com.xmlcalabash.model.RuntimeValue;
-import org.xml.sax.InputSource;
-
-import javax.xml.transform.sax.SAXSource;
-import javax.xml.transform.URIResolver;
-import javax.xml.transform.Source;
-import javax.xml.transform.TransformerException;
 import java.io.InputStream;
-import java.util.Vector;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.Vector;
+
+import javax.xml.transform.Source;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.URIResolver;
+import javax.xml.transform.sax.SAXSource;
+
+import net.sf.saxon.Configuration;
+import net.sf.saxon.om.StandardNames;
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.SaxonApiUncheckedException;
+import net.sf.saxon.s9api.XPathCompiler;
+import net.sf.saxon.s9api.XPathExecutable;
+import net.sf.saxon.s9api.XPathSelector;
+import net.sf.saxon.s9api.XdmAtomicValue;
+import net.sf.saxon.s9api.XdmDestination;
+import net.sf.saxon.s9api.XdmItem;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.s9api.XsltCompiler;
+import net.sf.saxon.s9api.XsltExecutable;
+import net.sf.saxon.s9api.XsltTransformer;
+import net.sf.saxon.trans.XPathException;
+
+import org.xml.sax.InputSource;
+
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.model.RuntimeValue;
+import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.S9apiUtils;
+
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 22, 2008
+ * Time: 11:06:11 AM
+ * To change this template use File | Settings | File Templates.
+ */
 
 public class ValidateWithSCH extends DefaultStep {
     private static final QName _assert_valid = new QName("", "assert-valid");
@@ -56,6 +75,7 @@ public class ValidateWithSCH extends DefaultStep {
     private WritablePipe resultPipe = null;
     private WritablePipe reportPipe = null;
     private Hashtable<QName,RuntimeValue> params = new Hashtable<QName,RuntimeValue> ();
+    private boolean schemaAware = false;
 
 
     /** Creates a new instance of ValidateWithXSD */
@@ -93,6 +113,13 @@ public class ValidateWithSCH extends DefaultStep {
     public void gorun() throws SaxonApiException {
         super.gorun();
 
+        XdmNode sourceXML = source.read(stepContext);
+
+        // If we're dealing with a typed document, we must compile the XSLT in schema-aware mode
+        schemaAware = (sourceXML.getUnderlyingNode().getTypeAnnotation() != StandardNames.XS_UNTYPED);
+
+        XdmNode schemaXML = schema.read(stepContext);
+
         XsltCompiler compiler;
         XsltExecutable exec;
         XdmDestination result;
@@ -108,7 +135,7 @@ public class ValidateWithSCH extends DefaultStep {
 
         // It would be nice to load these stylesheets only once, but sometimes (i.e. from RunTest),
         // there are different controllers involved and you can't do that.
-        XdmNode theSchema1_sch = transform(schema.read(stepContext), getSchematronXSLT("iso_dsdl_include.xsl"));
+        XdmNode theSchema1_sch = transform(schemaXML, getSchematronXSLT("iso_dsdl_include.xsl"));
         XdmNode theSchema2_sch = transform(theSchema1_sch, getSchematronXSLT("iso_abstract_expand.xsl"));
 
         skeleton = getClass().getResourceAsStream("/etc/schematron/iso_schematron_skeleton_for_saxon.xsl");
@@ -117,6 +144,7 @@ public class ValidateWithSCH extends DefaultStep {
         }
 
         compiler = runtime.getProcessor().newXsltCompiler();
+        compiler.setSchemaAware(schemaAware);
         compiler.setURIResolver(new UResolver());
         exec = compiler.compile(getSchematronXSLT("iso_svrl_for_xslt2.xsl"));
         XsltTransformer schemaCompiler = exec.load();
@@ -134,15 +162,24 @@ public class ValidateWithSCH extends DefaultStep {
         schemaCompiler.setInitialContextNode(theSchema2_sch);
         result = new XdmDestination();
         schemaCompiler.setDestination(result);
+
+        runtime.getConfigurer().getSaxonConfigurer().configSchematron(schemaCompiler.getUnderlyingController().getConfiguration());
+
         schemaCompiler.transform();
 
         XdmNode compiledSchema = result.getXdmNode();
+        XdmNode compiledRoot = S9apiUtils.getDocumentElement(compiledSchema);
+        
+        if (compiledRoot == null) {
+            XdmNode schemaRoot = S9apiUtils.getDocumentElement(schemaXML);
+            String root = schemaRoot == null ? "null" : schemaRoot.getNodeName().toString();
+            throw new XProcException("p:validate-with-schematron failed to compile provided schema: " + root);
+        }
 
         XsltTransformer transformer;
 
-        XdmNode sourceXML = source.read(stepContext);
-
         compiler = runtime.getProcessor().newXsltCompiler();
+        compiler.setSchemaAware(schemaAware);
         exec = compiler.compile(new SAXSource(S9apiUtils.xdmToInputSource(runtime, compiledSchema)));
         transformer = exec.load();
         transformer.setInitialContextNode(sourceXML);
@@ -158,8 +195,8 @@ public class ValidateWithSCH extends DefaultStep {
             throw XProcException.stepError(54);
         }
 
-        resultPipe.write(stepContext, sourceXML);
-        reportPipe.write(stepContext, report);
+        resultPipe.write(stepContext,sourceXML);
+        reportPipe.write(stepContext,report);
     }
 
     private boolean checkFailedAssert(XdmNode doc) {
@@ -172,6 +209,7 @@ public class ValidateWithSCH extends DefaultStep {
 
         try {
             XPathCompiler xcomp = runtime.getProcessor().newXPathCompiler();
+            xcomp.setBaseURI(step.getNode().getBaseURI());
 
             for (String prefix : nsBindings.keySet()) {
                 xcomp.declareNamespace(prefix, nsBindings.get(prefix));
@@ -227,7 +265,7 @@ public class ValidateWithSCH extends DefaultStep {
     private SAXSource getSchematronXSLT(String xslt) {
         InputStream instream = getClass().getResourceAsStream("/etc/schematron/" + xslt);
         if (instream == null) {
-            throw new UnsupportedOperationException("Failed to load iso_svrl.xsl from JAR file.");
+            throw new UnsupportedOperationException("Failed to load " + xslt + " from JAR file.");
         }
 
         return new SAXSource(new InputSource(instream));
@@ -235,6 +273,7 @@ public class ValidateWithSCH extends DefaultStep {
 
     private XdmNode transform(XdmNode source, SAXSource stylesheet) throws SaxonApiException {
         XsltCompiler compiler = runtime.getProcessor().newXsltCompiler();
+        compiler.setSchemaAware(schemaAware);
         compiler.setURIResolver(new UResolver());
         XsltExecutable exec = compiler.compile(stylesheet);
         XsltTransformer schemaCompiler = exec.load();

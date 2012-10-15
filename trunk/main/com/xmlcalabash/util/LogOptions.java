@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,6 +21,13 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.util;
 
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Feb 6, 2009
+ * Time: 8:36:59 AM
+ * To change this template use File | Settings | File Templates.
+ */
 public enum LogOptions {
     OFF, PLAIN, WRAPPED, DIRECTORY;
 }

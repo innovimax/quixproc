@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,9 +21,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.functions;
 
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.runtime.XCompoundStep;
-import com.xmlcalabash.runtime.XStep;
 import net.sf.saxon.expr.Expression;
 import net.sf.saxon.expr.StaticContext;
 import net.sf.saxon.expr.XPathContext;
@@ -33,10 +30,14 @@ import net.sf.saxon.om.SequenceIterator;
 import net.sf.saxon.om.StructuredQName;
 import net.sf.saxon.trans.XPathException;
 import net.sf.saxon.tree.iter.SingletonIterator;
-import net.sf.saxon.value.StringValue;
 import net.sf.saxon.value.SequenceType;
+import net.sf.saxon.value.StringValue;
+
 import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.runtime.XCompoundStep;
+import com.xmlcalabash.runtime.XStep;
 
 /**
  * Implementation of the XSLT system-property() function
@@ -44,14 +45,23 @@ import com.xmlcalabash.core.XProcRuntime;
 
 public class SystemProperty extends ExtensionFunctionDefinition {
     private static StructuredQName funcname = new StructuredQName("p", XProcConstants.NS_XPROC, "system-property");
-    private XProcRuntime runtime = null;
+    private ThreadLocal<XProcRuntime> tl_runtime = new ThreadLocal<XProcRuntime>() {
+        protected synchronized XProcRuntime initialValue() {
+            return null;
+        }
+    };
+    
+    private XProcRuntime runtime = null; // Innovimax: new property    
 
      protected SystemProperty() {
          // you can't call this one
      }
 
+     // Innovimax: modified constructor
      public SystemProperty(XProcRuntime runtime) {
-         this.runtime = runtime;
+        // Innovimax: desactivate ThreadLocal 
+        //tl_runtime.set(runtime);
+        this.runtime = runtime; 
      }
 
      public StructuredQName getFunctionQName() {
@@ -85,9 +95,12 @@ public class SystemProperty extends ExtensionFunctionDefinition {
              staticContext = context;
          }
 
+         // Innovimax: modified function
          public SequenceIterator call(SequenceIterator[] arguments, XPathContext context) throws XPathException {
              StructuredQName propertyName = null;
 
+            // Innovimax: desactivate ThreadLocal
+            //XProcRuntime runtime = tl_runtime.get();    
              XStep step = runtime.getXProcData().getStep();
              // FIXME: this can't be the best way to do this...
              // FIXME: And what, exactly, is this even supposed to be doing!?
@@ -111,9 +124,9 @@ public class SystemProperty extends ExtensionFunctionDefinition {
                  throw e;
              }
 
-             String uri = propertyName.getNamespaceURI();
-             String local = propertyName.getLocalName();
-             String value = "";
+             String uri = propertyName.getURI();
+                      String local = propertyName.getLocalPart();
+                         String value = "";
 
              if (uri.equals(XProcConstants.NS_XPROC)) {
                  if ("episode".equals(local)) {
@@ -134,6 +147,22 @@ public class SystemProperty extends ExtensionFunctionDefinition {
                      value = runtime.getXPathVersion();
                  } else if ("psvi-supported".equals(local)) {
                      value = runtime.getPSVISupported() ? "true" : "false";
+                 }
+             } else if (uri.equals(XProcConstants.NS_CALABASH_EX)) {
+                 if ("transparent-json".equals(local)) {
+                     value = runtime.transparentJSON() ? "true" : "false";
+                 } else if ("json-flavor".equals(local)) {
+                     value = runtime.jsonFlavor();
+                 } else if ("general-values".equals(local)) {
+                     value = runtime.getAllowGeneralExpressions() ? "true" : "false";
+                 } else if ("xpointer-on-text".equals(local)) {
+                     value = runtime.getAllowXPointerOnText() ? "true" : "false";
+                 } else if ("use-xslt-1.0".equals(local) || "use-xslt-10".equals(local)) {
+                     value = runtime.getUseXslt10Processor() ? "true" : "false";
+                 } else if ("saxon-version".equals(local)) {
+                     value = runtime.getConfiguration().getProcessor().getSaxonProductVersion();
+                 } else if ("saxon-edition".equals(local)) {
+                     value = runtime.getConfiguration().saxonProcessor;
                  }
              }
 

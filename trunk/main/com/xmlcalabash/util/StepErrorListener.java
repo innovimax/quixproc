@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,23 +21,31 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.util;
 
-import net.sf.saxon.om.StructuredQName;
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.QName;
-
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.SourceLocator;
-import javax.xml.transform.ErrorListener;
-
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcConstants;
-import net.sf.saxon.trans.XPathException;
-
 import java.net.URI;
 
+import javax.xml.transform.ErrorListener;
+import javax.xml.transform.SourceLocator;
+import javax.xml.transform.TransformerException;
+
+import net.sf.saxon.om.StructuredQName;
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.trans.XPathException;
+
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcRuntime;
+
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Dec 9, 2009
+ * Time: 7:13:02 AM
+ *
+ * This listener collects messages to send to the error port if applicable.
+ */
 public class StepErrorListener implements ErrorListener {
     private static QName c_error = new QName(XProcConstants.NS_XPROC_STEP, "error");
-    private static QName _name = new QName("", "name");
+    private static StructuredQName err_sxxp0003 = new StructuredQName("err", "http://www.w3.org/2005/xqt-errors", "SXXP0003");
     private static QName _type = new QName("", "type");
     private static QName _href = new QName("", "href");
     private static QName _line = new QName("", "line");
@@ -68,22 +76,41 @@ public class StepErrorListener implements ErrorListener {
     public void warning(TransformerException exception) throws TransformerException {
         if (!report("warning", exception)) {
             // XProc doesn't have recoverable exceptions...
-            runtime.error(exception);
+            runtime.warning(exception);
         }
     }
 
     private boolean report(String type, TransformerException exception) {
+        // HACK!!!
+        if (runtime.transparentJSON() && exception instanceof XPathException) {
+            XPathException e = (XPathException) exception;
+            StructuredQName errqn = e.getErrorCodeQName();
+            if (errqn != null && errqn.equals(err_sxxp0003)) {
+                // We'll be trying again as JSON, so let it go this time
+                return true;
+            }
+        }
+        
         TreeWriter writer = new TreeWriter(runtime);
 
         writer.startDocument(baseURI);
         writer.addStartElement(c_error);
         writer.addAttribute(_type, type);
 
+        String message = exception.toString();
         StructuredQName qCode = null;
         if (exception instanceof XPathException) {
             XPathException xxx = (XPathException) exception;
             qCode = xxx.getErrorCodeQName();
-            //qCode = ((XPathException) exception).getErrorCodeQName();
+
+            Throwable underlying = exception.getException();
+            if (underlying == null) {
+                underlying = exception.getCause();
+            }
+
+            if (underlying != null) {
+                message = underlying.toString();
+            }
         }
         if (qCode == null && exception.getException() instanceof XPathException) {
             qCode = ((XPathException) exception.getException()).getErrorCodeQName();
@@ -124,7 +151,7 @@ public class StepErrorListener implements ErrorListener {
 
 
         writer.startContent();
-        writer.addText(exception.toString());
+        writer.addText(message);
         writer.addEndElement();
         writer.endDocument();
 

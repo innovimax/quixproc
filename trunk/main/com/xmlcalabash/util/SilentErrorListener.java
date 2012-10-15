@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,10 +21,20 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.util;
 
-import net.sf.saxon.lib.StandardErrorListener;
-
 import javax.xml.transform.TransformerException;
 
+import net.sf.saxon.lib.StandardErrorListener;
+
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Dec 9, 2009
+ * Time: 7:13:02 AM
+ *
+ * The StepErrorListener puts errors on the p:catch error port and passes the error along to the next
+ * listener. If you want the next listener to just drop messages on the floor, use this one.
+ *
+ */
 public class SilentErrorListener extends StandardErrorListener {
     public SilentErrorListener() {
         super();

@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,19 +22,26 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.io;
 
-import net.sf.saxon.s9api.XdmNode;
-import com.xmlcalabash.model.Step;
-
 import innovimax.quixproc.codex.util.PipedDocument;
 import innovimax.quixproc.codex.util.StepContext;
+import net.sf.saxon.s9api.XdmNode;
 
+import com.xmlcalabash.model.Step;
+// Innovimax: new import
+// Innovimax: new import
+
+/**
+ *
+ * @author ndw
+ */
 public interface WritablePipe {
-    public void canWriteSequence(boolean sequence);            
-                
+    public void canWriteSequence(boolean sequence);    
+    public boolean writeSequence();
+    
     //*************************************************************************
     // INNOVIMAX IMPLEMENTATION
     //*************************************************************************               
-      
+        
     public void resetWriter(StepContext stepContext);    
     public Step getWriter(StepContext stepContext);            
     public void setWriter(StepContext stepContext, Step step);     
@@ -47,10 +54,10 @@ public interface WritablePipe {
     //*************************************************************************
     // INNOVIMAX DEPRECATION
     //*************************************************************************              
-/*    
+/*        
     public void resetWriter();    
     public void write(XdmNode document);             
     public void setWriter(Step step);      
     public void close();    
-*/    
+*/     
 }

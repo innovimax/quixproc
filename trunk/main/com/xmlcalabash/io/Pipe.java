@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,21 +22,28 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.io;
 
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.model.Step;
-import net.sf.saxon.s9api.XdmNode;
-
-import java.util.logging.Logger;
-
-import innovimax.quixproc.codex.util.Waiting;
-
 import innovimax.quixproc.codex.util.PipedDocument;
 import innovimax.quixproc.codex.util.StepContext;
+import innovimax.quixproc.codex.util.Waiting;
 import innovimax.quixproc.codex.util.shared.ChannelReader;
 import innovimax.quixproc.codex.util.shared.ChannelWriter;
 import innovimax.quixproc.util.shared.ChannelPosition;
+import net.sf.saxon.s9api.XdmNode;
 
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.model.Step;
+// Innovimax: new import  
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
+
+/**
+ *
+ * @author ndw
+ */
 public class Pipe implements ReadablePipe, WritablePipe {    
     private static int idCounter = 0;
     private int id = 0;
@@ -48,14 +55,14 @@ public class Pipe implements ReadablePipe, WritablePipe {
     private Step reader = null;
 
     /** Creates a new instance of Pipe */
-    public Pipe(XProcRuntime xproc) {        
+    public Pipe(XProcRuntime xproc) {
         runtime = xproc;
         documents = new DocumentSequence(xproc);
         documents.addReader();
         id = idCounter++;
     }
 
-    public Pipe(XProcRuntime xproc, DocumentSequence seq) {        
+    public Pipe(XProcRuntime xproc, DocumentSequence seq) {
         runtime = xproc;
         documents = seq;
         seq.addReader();
@@ -64,19 +71,23 @@ public class Pipe implements ReadablePipe, WritablePipe {
     
     public void canWriteSequence(boolean sequence) {
         writeSeqOk = sequence;
-    }    
-    
+    }
+
     public void canReadSequence(boolean sequence) {
         readSeqOk = sequence;
     }
-
-    public DocumentSequence documents() {
-        return documents;
+    
+    public boolean readSequence() {
+        return readSeqOk;
     }
 
+    public boolean writeSequence() {
+        return writeSeqOk;
+    }    
+    
     public String toString() {
         return "[pipe #" + id + "] (" + documents + ")";
-    }        
+    }      
     
     //*************************************************************************
     //*************************************************************************        
@@ -168,6 +179,11 @@ public class Pipe implements ReadablePipe, WritablePipe {
     }       
     
     // Innovimax: new function
+    public DocumentSequence documents(StepContext stepContext) {
+        return documents;
+    }       
+    
+    // Innovimax: new function
     public XdmNode read(StepContext stepContext) {         
         PipedDocument doc = readAsStream(stepContext);
         if (doc!=null) {
@@ -211,11 +227,11 @@ public class Pipe implements ReadablePipe, WritablePipe {
             
     // Innovimax: new function
     public void write(StepContext stepContext, XdmNode doc) {       
-        PipedDocument document = documents.newPipedDocument(stepContext.curChannel, doc);
-        runtime.getTracer().debug(null,stepContext,-1,this,document,"    PIPE > WRITE ");
-        if (documents.size(stepContext.curChannel) > 1 && !writeSeqOk) {
+        if (documents.size(stepContext.curChannel) > 0 && !writeSeqOk) {
             throw XProcException.dynamicError(7);
-        }        
+        }       
+        PipedDocument document = documents.newPipedDocument(stepContext.curChannel, doc);
+        runtime.getTracer().debug(null,stepContext,-1,this,document,"    PIPE > WRITE ");       
         if (!writeSeqOk) {                   
             documents.close(stepContext.curChannel);
         }            
@@ -239,16 +255,21 @@ public class Pipe implements ReadablePipe, WritablePipe {
     // Innovimax: new function
     @Override
     public PipedDocument newPipedDocument(int channel) {
-      PipedDocument document = documents.newPipedDocument(channel); 
-      runtime.getTracer().debug(null,null,channel,this,document,"    PIPE > WRITE ");
-      if (documents.size(channel) > 1 && !writeSeqOk) {
+      if (documents.size(channel) > 0 && !writeSeqOk) {
           throw XProcException.dynamicError(7);
-      }              
+      }         
+      PipedDocument document = documents.newPipedDocument(channel); 
+      runtime.getTracer().debug(null,null,channel,this,document,"    PIPE > WRITE ");           
       if (!writeSeqOk) {                          
           documents.close(channel);            
       }      
       return document;
-    }      
+    }    
+    
+    // Innovimax: new function
+    public String sequenceInfos() {        
+        return documents.toString();
+    }       
     
     //*************************************************************************
     //*************************************************************************        
@@ -256,11 +277,11 @@ public class Pipe implements ReadablePipe, WritablePipe {
     // INNOVIMAX DEPRECATION
     //*************************************************************************
     //*************************************************************************
-    //*************************************************************************        
+    //*************************************************************************       
 /*    
     private Logger logger = Logger.getLogger(this.getClass().getName());
     private int pos = 0;
-    
+
     public void setReader(Step step) {
         reader = step;
     }
@@ -268,7 +289,7 @@ public class Pipe implements ReadablePipe, WritablePipe {
     public void setWriter(Step step) {
         writer  = step;
     }
-
+       
     public void resetReader() {
         pos = 0;
     }
@@ -283,7 +304,7 @@ public class Pipe implements ReadablePipe, WritablePipe {
     }
 
     public boolean closed() {
-        return documents.closed(stepContext);
+        return documents.closed();
     }
 
     public void close() {
@@ -294,12 +315,16 @@ public class Pipe implements ReadablePipe, WritablePipe {
             throw XProcException.dynamicError(7);
         }
         *//*
-        documents.close(stepContext);
+        documents.close();
     }
 
     public int documentCount() {
         return documents.size();
     }
+    
+    public DocumentSequence documents() {
+        return documents;
+    }   
 
     public XdmNode read () {
         if (pos > 0 && !readSeqOk) {

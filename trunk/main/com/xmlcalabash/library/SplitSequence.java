@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -19,30 +19,33 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
-
 package com.xmlcalabash.library;
+
+import net.sf.saxon.expr.XPathContext;
+import net.sf.saxon.om.Item;
+import net.sf.saxon.om.SequenceIterator;
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XPathCompiler;
+import net.sf.saxon.s9api.XPathExecutable;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.sxpath.XPathDynamicContext;
+import net.sf.saxon.sxpath.XPathExpression;
+import net.sf.saxon.trans.XPathException;
+import net.sf.saxon.value.BooleanValue;
 
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.model.RuntimeValue;
-import net.sf.saxon.s9api.QName;
-import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.XPathCompiler;
-import net.sf.saxon.s9api.XPathExecutable;
-import net.sf.saxon.trans.XPathException;
-import net.sf.saxon.sxpath.XPathExpression;
-import net.sf.saxon.sxpath.XPathDynamicContext;
-import net.sf.saxon.expr.XPathContext;
-import net.sf.saxon.om.Item;
-import net.sf.saxon.om.SequenceIterator;
-import net.sf.saxon.value.BooleanValue;
-
 import com.xmlcalabash.runtime.XAtomicStep;
 import com.xmlcalabash.util.DocumentSequenceIterator;
 
+/**
+ *
+ * @author ndw
+ */
 public class SplitSequence extends DefaultStep {
     private static final QName _test = new QName("", "test");
     private static final QName _initial_only = new QName("", "initial-only");
@@ -75,12 +78,15 @@ public class SplitSequence extends DefaultStep {
     }
 
     public void gorun() throws SaxonApiException {
-        super.gorun();        
-        RuntimeValue test = getOption(_test);    
+        super.gorun();
+
+        RuntimeValue test = getOption(_test);
+        
         // Innovimax: last() is not available here
         if (test.getString().contains("last()")) {
             throw new RuntimeException("last() is not available in p:split-sequence @test");
         }
+                
         initialOnly = getOption(_initial_only, false);
         boolean stillOk = true;
 
@@ -88,25 +94,27 @@ public class SplitSequence extends DefaultStep {
         while (source.moreDocuments(stepContext)) {
             count++;
             source.read(stepContext);
-        }        
-        source.resetReader(stepContext);        
+        }
+        source.resetReader(stepContext);
 
         DocumentSequenceIterator xsi = new DocumentSequenceIterator(); // See below
         xsi.setLast(count);
 
         int pos = 0;
-        while (source.moreDocuments(stepContext)) {            
+        while (source.moreDocuments(stepContext)) {
             XdmNode doc = source.read(stepContext);
-            pos++;            
+            pos++;
 
             Item item = null;
 
             try {
                 XPathCompiler xcomp = runtime.getProcessor().newXPathCompiler();
+                xcomp.setBaseURI(step.getNode().getBaseURI());
+
                 for (String prefix : test.getNamespaceBindings().keySet()) {
-                    xcomp.declareNamespace(prefix, test.getNamespaceBindings().get(prefix));                    
+                    xcomp.declareNamespace(prefix, test.getNamespaceBindings().get(prefix));
                 }
-                
+
                 XPathExecutable xexec = xcomp.compile(test.getString());
 
                 // From Michael Kay: http://markmail.org/message/vkb2vaq2miylgndu
@@ -162,9 +170,9 @@ public class SplitSequence extends DefaultStep {
             stillOk = stillOk && pass;
 
             if (pass && (!initialOnly || stillOk)) {
-                matched.write(stepContext, doc);
+                matched.write(stepContext,doc);
             } else {
-                notMatched.write(stepContext, doc);
+                notMatched.write(stepContext,doc);
             }
         }
     }

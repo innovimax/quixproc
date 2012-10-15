@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,21 +21,29 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.extensions.fileutils;
 
-import com.xmlcalabash.library.DefaultStep;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.runtime.XAtomicStep;
-import com.xmlcalabash.model.RuntimeValue;
-import com.xmlcalabash.util.TreeWriter;
-import net.sf.saxon.s9api.QName;
-import net.sf.saxon.s9api.SaxonApiException;
-
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.library.DefaultStep;
+import com.xmlcalabash.model.RuntimeValue;
+import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.TreeWriter;
+
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: May 24, 2009
+ * Time: 3:17:23 PM
+ * To change this template use File | Settings | File Templates.
+ */
 public class Tempfile extends DefaultStep {
     private static final QName _href = new QName("href");
     private static final QName _prefix = new QName("prefix");
@@ -114,6 +122,6 @@ public class Tempfile extends DefaultStep {
         tree.addEndElement();
         tree.endDocument();
 
-        result.write(stepContext, tree.getResult());
+        result.write(stepContext,tree.getResult());
     }
 }

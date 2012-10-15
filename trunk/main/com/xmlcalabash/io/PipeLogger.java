@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,23 +21,30 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.io;
 
-import com.xmlcalabash.model.Log;
-import com.xmlcalabash.util.S9apiUtils;
-import com.xmlcalabash.util.LogOptions;
-import com.xmlcalabash.core.XProcRuntime;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintStream;
+import java.util.GregorianCalendar;
+
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.Serializer;
+import net.sf.saxon.s9api.XdmNode;
+
 import com.xmlcalabash.core.XProcConfiguration;
 import com.xmlcalabash.core.XProcConstants;
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.Serializer;
-import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.QName;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.model.Log;
+import com.xmlcalabash.util.LogOptions;
+import com.xmlcalabash.util.S9apiUtils;
 
-import java.io.File;
-import java.io.PrintStream;
-import java.io.FileNotFoundException;
-import java.util.GregorianCalendar;
-import java.net.URI;
-
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Sep 28, 2008
+ * Time: 3:15:57 PM
+ * To change this template use File | Settings | File Templates.
+ */
 public class PipeLogger {
     private static final QName cx_basename = new QName("cx", XProcConstants.NS_CALABASH_EX, "basename");
     private static final QName cx_logstyle = new QName("cx", XProcConstants.NS_CALABASH_EX, "logstyle");

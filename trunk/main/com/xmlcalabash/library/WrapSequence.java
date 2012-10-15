@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,22 +22,31 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.library;
 
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.util.TreeWriter;
-import com.xmlcalabash.util.DocumentSequenceIterator;
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import net.sf.saxon.s9api.*;
-import net.sf.saxon.sxpath.XPathExpression;
-import net.sf.saxon.sxpath.XPathDynamicContext;
 import net.sf.saxon.expr.XPathContext;
 import net.sf.saxon.om.Item;
 import net.sf.saxon.om.SequenceIterator;
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XPathCompiler;
+import net.sf.saxon.s9api.XPathExecutable;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.sxpath.XPathDynamicContext;
+import net.sf.saxon.sxpath.XPathExpression;
 import net.sf.saxon.trans.XPathException;
-import com.xmlcalabash.runtime.XAtomicStep;
-import com.xmlcalabash.model.RuntimeValue;
 
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.model.RuntimeValue;
+import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.DocumentSequenceIterator;
+import com.xmlcalabash.util.TreeWriter;
+
+/**
+ *
+ * @author ndw
+ */
 public class WrapSequence extends DefaultStep {
     private static QName _wrapper = new QName("", "wrapper");
     private static QName _wrapper_prefix = new QName("", "wrapper-prefix");
@@ -112,7 +121,7 @@ public class WrapSequence extends DefaultStep {
         treeWriter.endDocument();
 
         XdmNode doc = treeWriter.getResult();
-        result.write(stepContext, doc);
+        result.write(stepContext,doc);
     }
 
     private void runAdjacent() throws SaxonApiException {
@@ -139,6 +148,8 @@ public class WrapSequence extends DefaultStep {
 
             try {
                 XPathCompiler xcomp = runtime.getProcessor().newXPathCompiler();
+                xcomp.setBaseURI(step.getNode().getBaseURI());
+
                 for (String prefix : groupAdjacent.getNamespaceBindings().keySet()) {
                     xcomp.declareNamespace(prefix, groupAdjacent.getNamespaceBindings().get(prefix));
                 }
@@ -205,7 +216,7 @@ public class WrapSequence extends DefaultStep {
                         open = false;
                         treeWriter.addEndElement();
                         treeWriter.endDocument();
-                        result.write(stepContext, treeWriter.getResult());
+                        result.write(stepContext,treeWriter.getResult());
                     }
                 }
             }
@@ -225,7 +236,7 @@ public class WrapSequence extends DefaultStep {
             open = false;
             treeWriter.addEndElement();
             treeWriter.endDocument();
-            result.write(stepContext, treeWriter.getResult());
+            result.write(stepContext,treeWriter.getResult());
         }
     }
 }

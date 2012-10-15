@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -150,6 +150,10 @@ public class QConfig {
     } else {    
       tracer.debug("Running in run-it mode", true);
     }  
-  }           
+  }    
+  
+  public void startSpying() { spy.start(!isDOMAll()); }      
+  
+  public void stopSpying() { spy.stop(); }         
   
 }

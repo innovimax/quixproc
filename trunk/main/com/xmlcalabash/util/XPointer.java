@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,21 +21,31 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.util;
 
-import net.sf.saxon.s9api.*;
-
-import java.util.Vector;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.Hashtable;
-import java.util.Iterator;
-import java.util.regex.Pattern;
+import java.util.Vector;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.XdmNode;
 
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
 
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 18, 2008
+ * Time: 2:17:53 PM
+ * To change this template use File | Settings | File Templates.
+ */
 public class XPointer {
     private static final QName _xmlns = new QName("", "xmlns");
     private static final QName _element = new QName("", "element");
     private static final QName _xpath = new QName("", "xpath");
+    private static final QName _text = new QName("", "text");
 
     private Vector<XPointerScheme> parts = new Vector<XPointerScheme> ();
 
@@ -46,112 +56,69 @@ public class XPointer {
         }
     }
 
-    public String xpathEquivalent() {
-        int pos = recognizedScheme();
-        if (pos < 0) {
-            throw new XProcException("No recognized XPointer schemes.");
-        }
-
-        XPointerScheme scheme = parts.get(pos);
-
-        if (scheme instanceof XPointerElementScheme) {
-            String xpath = "";
-            String data = scheme.schemeData;
-            pos = data.indexOf("/");
-            if (pos < 0) {
-                return "id('" + data + "')";
-            }
-
-            if (pos > 0) {
-                xpath = "id('" + data.substring(0,pos) + "')";
-                data = data.substring(pos);
-            }
-
-            Pattern dscheme = Pattern.compile("^/(\\d+)(.*)$");
-            Matcher dmatcher = dscheme.matcher(data);
-            while (dmatcher.matches()) {
-                xpath += "/*[" + dmatcher.group(1) + "]";
-                data = dmatcher.group(2);
-                dmatcher = dscheme.matcher(data);
-            }
-
-            if (!"".equals(data)) {
-                throw new XProcException("Element pointer didn't parse.");
-            }
-            
-            return xpath;
-        } else if (scheme instanceof XPointerXPathScheme) {
-            return scheme.schemeData;
-        } else {
-            throw new XProcException("No recognized XPointer schemes.");
-        }
-    }
-
     public Hashtable<String,String> xpathNamespaces() {
         Hashtable<String,String> bindings = new Hashtable<String,String> ();
-        int end = recognizedScheme();
-        int pos;
-        for (pos = 0; pos < end; pos++) {
-            XPointerScheme scheme = parts.get(pos);
-            if (scheme instanceof XPointerXmlnsScheme) {
-                XPointerXmlnsScheme xs = (XPointerXmlnsScheme) scheme;
-                bindings.put(xs.prefix,xs.uri);
+        for (XPointerScheme scheme : parts) {
+            if (_xmlns.equals(scheme.getName())) {
+                XPointerXmlnsScheme xmlns = (XPointerXmlnsScheme) scheme;
+                bindings.put(xmlns.getPrefix(), xmlns.getURI());
             }
         }
         return bindings;
     }
 
-    public Vector<XdmNode> selectNodes(XProcRuntime runtime, XdmNode doc, String select, Hashtable<String,String> nsBindings) {
-        Vector<XdmNode> selectedNodes = new Vector<XdmNode> ();
+    public Vector<XdmNode> selectNodes(XProcRuntime runtime, XdmNode doc) {
+        Vector<XdmNode> result = null;
 
-        XPathSelector selector = null;
-        XPathCompiler xcomp = runtime.getProcessor().newXPathCompiler();
-        for (String prefix : nsBindings.keySet()) {
-            xcomp.declareNamespace(prefix, nsBindings.get(prefix));
-        }
-
-        try {
-            XPathExecutable xexec = xcomp.compile(select);
-            selector = xexec.load();
-        } catch (SaxonApiException sae) {
-            throw new XProcException(sae);
-        }
-
-        try {
-            selector.setContextItem(doc);
-
-            Iterator iter = selector.iterator();
-            while (iter.hasNext()) {
-                XdmItem item = (XdmItem) iter.next();
-                XdmNode node = null;
+        for (XPointerScheme scheme : parts) {
+            String select = scheme.xpathEquivalent();
+            if (result == null && select != null) {
                 try {
-                    node = (XdmNode) item;
-                } catch (ClassCastException cce) {
-                    throw new XProcException ("XPointer matched non-node item?");
+                    result = scheme.selectNodes(runtime, doc, xpathNamespaces());
+                } catch (XProcException e) {
+                    result = null;
+                    // try the next one
                 }
-                selectedNodes.add(node);
             }
-        } catch (SaxonApiException sae) {
-            throw new XProcException(sae);
         }
 
-        return selectedNodes;
+        return result;
     }
 
-    private int recognizedScheme() {
-        int pos = 0;
-        while (pos < parts.size()) {
-            XPointerScheme scheme = parts.get(pos);
-            if (scheme instanceof XPointerElementScheme
-                    || scheme instanceof XPointerXPathScheme) {
-                return pos;
+    public String selectText(InputStreamReader stream, int contentLength) {
+        String result = null;
+
+        for (XPointerScheme scheme : parts) {
+            String select = scheme.textEquivalent();
+            if (result == null && select != null) {
+                try {
+                    result = scheme.selectText(stream, contentLength);
+                } catch (IllegalArgumentException iae) {
+                    result = null;
+                    // in this case we will never have started reading the file, so we're good to go
+                } catch (XProcException xe) {
+                    result = null;
+                    // try the next one
+                    try {
+                        stream.reset();
+                    } catch (IOException ioe) {
+                        throw new XProcException(ioe);
+                    }
+                }
             }
-            pos++;
         }
-        return -1;
+
+        return result;
     }
 
     private String parse(String xpointer) {
+        // FIXME: Hack! Is this acceptable?
+        if (xpointer.startsWith("/") && !xpointer.contains("(")) {
+            xpointer = "element(" + xpointer + ")";
+        }
+
+        xpointer = xpointer.trim();
+
         if (xpointer.matches("^[\\w:]+\\s*\\(.*")) {
             Pattern scheme = Pattern.compile("^([\\w+:]+)\\s*(\\(.*)$");
             Matcher matcher = scheme.matcher(xpointer);
@@ -175,6 +142,8 @@ public class XPointer {
                     parts.add(new XPointerElementScheme(name, data));
                 } else if (_xpath.equals(name)) {
                     parts.add(new XPointerXPathScheme(name, data));
+                } else if (_text.equals(name)) {
+                    parts.add(new XPointerTextScheme(name, data));
                 } else {
                     parts.add(new XPointerScheme(name, data));
                 }
@@ -265,20 +234,6 @@ public class XPointer {
         return repl;
     }
 
-    private class XPointerScheme {
-        protected QName schemeName = null;
-        protected String schemeData = null;
-
-        public XPointerScheme() {
-            // nop;
-        }
-
-        public XPointerScheme(QName name, String data) {
-            schemeName = name;
-            schemeData = data;
-        }
-    }
-
     private class XPointerXmlnsScheme extends XPointerScheme {
         protected String prefix = null;
         protected String uri = null;
@@ -295,17 +250,67 @@ public class XPointer {
                 throw new XProcException("Unparseable xmlns(): " + data);
             }
         }
+
+        public String getPrefix() {
+            return prefix;
+        }
+
+        public String getURI() {
+            return uri;
+        }
     }
 
     private class XPointerElementScheme extends XPointerScheme {
         public XPointerElementScheme(QName name, String data) {
             super(name,data);
         }
+
+        public String xpathEquivalent() {
+            String xpath = "";
+            String data = schemeData;
+            int pos = data.indexOf("/");
+            if (pos < 0) {
+                return "id('" + data + "')";
+            }
+
+            if (pos > 0) {
+                xpath = "id('" + data.substring(0,pos) + "')";
+                data = data.substring(pos);
+            }
+
+            Pattern dscheme = Pattern.compile("^/(\\d+)(.*)$");
+            Matcher dmatcher = dscheme.matcher(data);
+            while (dmatcher.matches()) {
+                xpath += "/*[" + dmatcher.group(1) + "]";
+                data = dmatcher.group(2);
+                dmatcher = dscheme.matcher(data);
+            }
+
+            if (!"".equals(data)) {
+                throw new XProcException("Element pointer didn't parse.");
+            }
+
+            return xpath;
+        }
     }
 
     private class XPointerXPathScheme extends XPointerScheme {
         public XPointerXPathScheme(QName name, String data) {
             super(name,data);
+        }
+
+        public String xpathEquivalent() {
+            return schemeData;
+        }
+    }
+
+    private class XPointerTextScheme extends XPointerScheme {
+        public XPointerTextScheme(QName name, String data) {
+            super(name,data);
+        }
+
+        public String textEquivalent() {
+            return schemeData;
         }
     }
 }

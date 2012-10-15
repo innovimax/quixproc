@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -24,6 +24,13 @@ package com.xmlcalabash.util;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
 
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Apr 13, 2008
+ * Time: 3:24:26 PM
+ * To change this template use File | Settings | File Templates.
+ */
 public interface ProcessMatchingNodes {
     public boolean processStartDocument(XdmNode node) throws SaxonApiException;
     public void processEndDocument(XdmNode node) throws SaxonApiException;

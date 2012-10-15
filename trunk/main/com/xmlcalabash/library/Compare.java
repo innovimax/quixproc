@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -24,23 +24,27 @@ package com.xmlcalabash.library;
 
 import java.util.Iterator;
 
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.util.TreeWriter;
-import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.XPathCompiler;
 import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XPathCompiler;
 import net.sf.saxon.s9api.XPathExecutable;
 import net.sf.saxon.s9api.XPathSelector;
-import net.sf.saxon.s9api.XdmItem;
 import net.sf.saxon.s9api.XdmAtomicValue;
+import net.sf.saxon.s9api.XdmItem;
+import net.sf.saxon.s9api.XdmNode;
 
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.TreeWriter;
 
+/**
+ *
+ * @author ndw
+ */
 public class Compare extends DefaultStep {
     private static final QName c_result = new QName("c", XProcConstants.NS_XPROC_STEP, "result");
     private static final QName doca = new QName("","doca");
@@ -105,7 +109,7 @@ public class Compare extends DefaultStep {
         treeWriter.addEndElement();
         treeWriter.endDocument();
 
-        result.write(stepContext, treeWriter.getResult());
+        result.write(stepContext,treeWriter.getResult());
     }
 }
 

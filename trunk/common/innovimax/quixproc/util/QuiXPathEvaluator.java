@@ -1,6 +1,6 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
+Copyright (C) 2011-2012 Innovimax
 All rights reserved.
 
 This program is free software; you can redistribute it and/or
@@ -19,10 +19,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package innovimax.quixproc.util;
 
+import innovimax.quixproc.datamodel.QuixEvent;
+import innovimax.quixproc.datamodel.QuixValue;
+
 import java.util.Map;
 
 import javax.xml.namespace.QName;
-import innovimax.quixproc.datamodel.*;
 
 public class QuiXPathEvaluator implements IEvalProcess {   
   /*

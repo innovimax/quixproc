@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -19,28 +19,42 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
+
 package com.xmlcalabash.io;
 
-import net.sf.saxon.s9api.XdmNode;
+import innovimax.quixproc.codex.util.PipedDocument;
+import innovimax.quixproc.codex.util.StepContext;
+import innovimax.quixproc.codex.util.Waiting;
+import innovimax.quixproc.codex.util.shared.ChannelDocuments;
+import innovimax.quixproc.codex.util.shared.DocumentList;
+import innovimax.quixproc.util.shared.ChannelClosed;
 
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Vector;
-import java.util.Set; // Innovimax: new import
-import java.util.HashSet; // Innovimax: new import
+
+import net.sf.saxon.s9api.XdmNode;
 
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.model.Log;
-import com.xmlcalabash.util.S9apiUtils;
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
 
-import innovimax.quixproc.codex.util.Waiting;
-import innovimax.quixproc.codex.util.PipedDocument;
-import innovimax.quixproc.codex.util.StepContext;
-import innovimax.quixproc.codex.util.shared.ChannelDocuments;
-import innovimax.quixproc.codex.util.shared.DocumentList;
-
-import innovimax.quixproc.datamodel.QuixEvent;
-import innovimax.quixproc.util.shared.ChannelClosed;
-
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 2, 2008
+ * Time: 6:56:32 AM
+ * To change this template use File | Settings | File Templates.
+ */
 public class DocumentSequence {
     protected static final String logger = "com.xmlcalabash.io.documentsequence";
     private XProcRuntime runtime = null;
@@ -71,11 +85,11 @@ public class DocumentSequence {
             outputlog = new PipeLogger(runtime, log);
         }
     }
-
+    
     public String toString() {
         return "[document-sequence #" + id + " (" + documents.size() + " docs)]";
     }
-
+    
     //*************************************************************************
     //*************************************************************************        
     //*************************************************************************
@@ -86,7 +100,7 @@ public class DocumentSequence {
     
     private ChannelDocuments documentsMap = new ChannelDocuments();  // Innovimax: new property
     private ChannelClosed closedMap = new ChannelClosed();  // Innovimax: new property
-    private Set<ReadablePipe> readers = new HashSet<ReadablePipe>();    
+    private Set<ReadablePipe> readers = new HashSet<ReadablePipe>();  // Innovimax: new property
     
     // Innovimax: new function
     public void addReader(ReadablePipe reader) {                   
@@ -223,8 +237,8 @@ public class DocumentSequence {
     // INNOVIMAX DEPRECATION
     //*************************************************************************
     //*************************************************************************
-    //*************************************************************************
-/*
+    //*************************************************************************    
+/*                 
     public void add(XdmNode document) {
         if (closed) {
             throw new XProcException("You can't add a document to a closed DocumentSequence.");

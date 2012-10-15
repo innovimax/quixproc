@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,24 +22,38 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.library;
 
-import java.util.Map;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Stack;
+
+import net.sf.saxon.om.FingerprintedQName;
+import net.sf.saxon.om.NodeName;
+import net.sf.saxon.s9api.Axis;
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XPathCompiler;
+import net.sf.saxon.s9api.XPathExecutable;
+import net.sf.saxon.s9api.XPathSelector;
+import net.sf.saxon.s9api.XdmItem;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.s9api.XdmNodeKind;
+import net.sf.saxon.s9api.XdmSequenceIterator;
+import net.sf.saxon.type.Untyped;
 
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.util.ProcessMatchingNodes;
-import com.xmlcalabash.util.ProcessMatch;
-import com.xmlcalabash.util.S9apiUtils;
 import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.model.RuntimeValue;
-import net.sf.saxon.s9api.*;
-import net.sf.saxon.om.NodeInfo;
-import net.sf.saxon.om.NamePool;
-import net.sf.saxon.om.StandardNames;
 import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.ProcessMatch;
+import com.xmlcalabash.util.ProcessMatchingNodes;
+import com.xmlcalabash.util.S9apiUtils;
 
+/**
+ *
+ * @author ndw
+ */
 public class Wrap extends DefaultStep implements ProcessMatchingNodes {
     private static final QName _match = new QName("match");
     private static final QName _wrapper = new QName("wrapper");
@@ -51,7 +65,7 @@ public class Wrap extends DefaultStep implements ProcessMatchingNodes {
     private ProcessMatch matcher = null;
     private Map<QName, RuntimeValue> inScopeOptions = null;
     private QName wrapper = null;
-    private int wrapperCode = 0;
+    private NodeName wrapperCode = null;
     private RuntimeValue groupAdjacent = null;
     private Stack<Boolean> inGroup = new Stack<Boolean> ();
 
@@ -100,9 +114,7 @@ public class Wrap extends DefaultStep implements ProcessMatchingNodes {
         inGroup.push(false);
 
         XdmNode doc = source.read(stepContext);
-        NodeInfo inode = doc.getUnderlyingNode();
-        NamePool pool = inode.getNamePool();
-        wrapperCode = pool.allocate(wrapper.getPrefix(),wrapper.getNamespaceURI(),wrapper.getLocalName());
+        wrapperCode = new FingerprintedQName(wrapper.getPrefix(),wrapper.getNamespaceURI(),wrapper.getLocalName());
 
         matcher = new ProcessMatch(runtime, this);
         matcher.match(doc,getOption(_match));
@@ -111,12 +123,12 @@ public class Wrap extends DefaultStep implements ProcessMatchingNodes {
             throw XProcException.dynamicError(6);
         }
 
-        result.write(stepContext, matcher.getResult());
+        result.write(stepContext,matcher.getResult());
     }
 
     public boolean processStartDocument(XdmNode node) throws SaxonApiException {
         matcher.startDocument(node.getBaseURI());
-        matcher.addStartElement(wrapperCode, StandardNames.XS_UNTYPED, null);
+        matcher.addStartElement(wrapperCode,Untyped.getInstance(), null);
         matcher.startContent();
         matcher.addSubtree(node);
         matcher.addEndElement();
@@ -131,7 +143,7 @@ public class Wrap extends DefaultStep implements ProcessMatchingNodes {
 
     public boolean processStartElement(XdmNode node) throws SaxonApiException {
         if (!inGroup.peek()) {
-            matcher.addStartElement(wrapperCode, StandardNames.XS_UNTYPED, null);
+            matcher.addStartElement(wrapperCode, Untyped.getInstance(), null);
         }
 
         if (groupAdjacent != null && nextMatches(node)) {
@@ -163,7 +175,7 @@ public class Wrap extends DefaultStep implements ProcessMatchingNodes {
 
     public void processText(XdmNode node) throws SaxonApiException {
         if (!inGroup.peek()) {
-            matcher.addStartElement(wrapperCode, StandardNames.XS_UNTYPED, null);
+            matcher.addStartElement(wrapperCode, Untyped.getInstance(), null);
         }
 
         matcher.addText(node.getStringValue());
@@ -180,7 +192,7 @@ public class Wrap extends DefaultStep implements ProcessMatchingNodes {
 
     public void processComment(XdmNode node) throws SaxonApiException {
         if (!inGroup.peek()) {
-            matcher.addStartElement(wrapperCode, StandardNames.XS_UNTYPED, null);
+            matcher.addStartElement(wrapperCode, Untyped.getInstance(), null);
         }
 
         matcher.addComment(node.getStringValue());
@@ -197,7 +209,7 @@ public class Wrap extends DefaultStep implements ProcessMatchingNodes {
 
     public void processPI(XdmNode node) throws SaxonApiException {
         if (!inGroup.peek()) {
-            matcher.addStartElement(wrapperCode, StandardNames.XS_UNTYPED, null);
+            matcher.addStartElement(wrapperCode, Untyped.getInstance(), null);
         }
 
         matcher.addPI(node.getNodeName().getLocalName(),node.getStringValue());
@@ -251,6 +263,8 @@ public class Wrap extends DefaultStep implements ProcessMatchingNodes {
     private XdmItem computeGroup(XdmNode node) {
         try {
             XPathCompiler xcomp = runtime.getProcessor().newXPathCompiler();
+            xcomp.setBaseURI(step.getNode().getBaseURI());
+
             for (String prefix : groupAdjacent.getNamespaceBindings().keySet()) {
                 xcomp.declareNamespace(prefix, groupAdjacent.getNamespaceBindings().get(prefix));
             }

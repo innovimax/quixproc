@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,17 +21,25 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.runtime;
 
-import com.xmlcalabash.io.DocumentSequence;
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.io.Pipe;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.model.Input;
-import net.sf.saxon.s9api.XdmNode;
-
 import java.util.Vector;
 
+import net.sf.saxon.s9api.XdmNode;
+
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.DocumentSequence;
+import com.xmlcalabash.io.Pipe;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.model.Input;
+
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 7, 2008
+ * Time: 7:38:44 AM
+ * To change this template use File | Settings | File Templates.
+ */
 public class XInput {
     private XProcRuntime runtime = null;
     private String port = null;

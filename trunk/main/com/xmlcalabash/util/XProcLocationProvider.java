@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,9 +21,17 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.util;
 
-import net.sf.saxon.event.SourceLocationProvider;
 import java.util.Hashtable;
 
+import net.sf.saxon.event.SourceLocationProvider;
+
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Nov 23, 2008
+ * Time: 5:12:19 PM
+ * To change this template use File | Settings | File Templates.
+ */
 public class XProcLocationProvider implements SourceLocationProvider {
     Hashtable<String, Integer> locationMap;
     Hashtable<Integer,String> idMap;

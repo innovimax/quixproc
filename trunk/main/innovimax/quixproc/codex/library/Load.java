@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -53,7 +53,7 @@ public class Load extends DefaultStep implements ContentHandler {
     
     private Locator locator = null;  
     private final StringBuffer charBuffer = new StringBuffer(); 
-    private final boolean preserveSpace = false;    
+    private final boolean preserveSpace = true;    
     private PipedDocument out = null; 
     private String baseURI;
     private final List<QuixEvent> namespaceList = new ArrayList<QuixEvent>(); 
@@ -73,15 +73,15 @@ public class Load extends DefaultStep implements ContentHandler {
         // nop
     }    
 
-    public void gorun() {                   
+    public void gorun() {                  
         RuntimeValue href = getOption(_href);                
         baseURI = runtime.getQConfig().getBaseURI(href.getBaseURI()).toASCIIString();  
         boolean validate = getOption(_dtd_validate, false);             
         try {   
             URI hrefURI = runtime.getQConfig().resolveURI(href.getBaseURI(), href.getString()); 
             
-            // innovimax: statistics                           
-            java.io.File file = new java.io.File(hrefURI);                
+            // innovimax: statistics                
+            java.io.File file = new java.io.File(hrefURI);                            
             if (file.exists()) { totalFileSize += file.length(); }                        
             
             out = result.newPipedDocument(stepContext.curChannel);            
@@ -105,9 +105,11 @@ public class Load extends DefaultStep implements ContentHandler {
     }  
   
     public void startDocument() throws SAXException { 
-        runtime.getTracer().debug(step,null,-1,null,null,"  LOAD > START DOCUMENT");        
+        runtime.getTracer().debug(step,null,-1,null,null,"  LOAD > START DOCUMENT"); 
         try {            
-            QuixEvent event = QuixEvent.getStartDocument(baseURI);
+            QuixEvent event = QuixEvent.getStartSequence();
+            out.append(event);
+            event = QuixEvent.getStartDocument(baseURI);
             out.append(event);                      
         } catch (Exception e) {            
             error(e); 
@@ -120,6 +122,8 @@ public class Load extends DefaultStep implements ContentHandler {
             processCharacters();
             QuixEvent event = QuixEvent.getEndDocument(baseURI);
             out.append(event);                      
+            event = QuixEvent.getEndSequence();
+            out.append(event);
             out.close();  
         } catch (Exception e) { 
             error(e); 

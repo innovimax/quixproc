@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,18 +21,26 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.extensions;
 
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.core.XProcRuntime;
+import java.net.URI;
+import java.util.Vector;
 
+import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.QName;
-import com.xmlcalabash.runtime.XAtomicStep;
-import com.xmlcalabash.library.DefaultStep;
 
-import java.util.Vector;
-import java.net.URI;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.library.DefaultStep;
+import com.xmlcalabash.runtime.XAtomicStep;
+
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 8, 2008
+ * Time: 7:44:07 AM
+ * To change this template use File | Settings | File Templates.
+ */
 
 public class CollectionManager extends DefaultStep {
     private static final QName _href = new QName("","href");
@@ -77,7 +85,7 @@ public class CollectionManager extends DefaultStep {
 
         if (collection != null) {
             for (XdmNode doc : collection) {
-                result.write(stepContext, doc);
+                result.write(stepContext,doc);
             }
         }
     }

@@ -1,8 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-Charles Foster
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,34 +20,38 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
+
 package com.xmlcalabash.extensions.xmlunit;
 
-import java.util.Iterator;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.io.ByteArrayOutputStream;
 
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.library.DefaultStep;
-import com.xmlcalabash.util.TreeWriter;
-import net.sf.saxon.s9api.*;
+import junit.framework.AssertionFailedError;
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.Serializer;
+import net.sf.saxon.s9api.XdmNode;
 
-import com.xmlcalabash.runtime.XAtomicStep;
-
-// ---- XML Unit dependencies ----
 import org.custommonkey.xmlunit.XMLAssert;
 import org.custommonkey.xmlunit.XMLUnit;
-import junit.framework.AssertionFailedError;
-// -------------------------------
-
-import javax.xml.transform.Source;
-import javax.xml.transform.sax.SAXSource;
 import org.xml.sax.SAXException;
 
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.library.DefaultStep;
+import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.TreeWriter;
+// ---- XML Unit dependencies ----
+// -------------------------------
+
+/**
+* @author Charles Foster
+*/
 public class Compare extends DefaultStep
 {
 	private static final QName c_result = new QName("c", XProcConstants.NS_XPROC_STEP, "result");
@@ -105,17 +108,9 @@ public class Compare extends DefaultStep
 	private String getXMLDocument(XdmNode saxonNode) throws SaxonApiException
 	{
 		Serializer serializer = makeSerializer();
-
-		Processor qtproc = runtime.getProcessor();
-		XQueryCompiler xqcomp = qtproc.newXQueryCompiler();
-		XQueryExecutable xqexec = xqcomp.compile(".");
-		XQueryEvaluator xqeval = xqexec.load();
-		xqeval.setContextItem(saxonNode);
-
 		ByteArrayOutputStream stream = new ByteArrayOutputStream();
 		serializer.setOutputStream(stream);
-		xqeval.setDestination(serializer);
-		xqeval.run();
+        S9apiUtils.serialize(runtime, saxonNode, serializer);
 
 		try {
 			return stream.toString("UTF-8");
@@ -162,7 +157,7 @@ public class Compare extends DefaultStep
 		treeWriter.addEndElement();
 		treeWriter.endDocument();
 
-		result.write(stepContext, treeWriter.getResult());
+		result.write(stepContext,treeWriter.getResult());
 	}
 }
 

@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -19,30 +19,37 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
+
 package com.xmlcalabash.runtime;
-
-import com.xmlcalabash.core.XProcRunnable;
-import com.xmlcalabash.core.XProcStep;
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.QName;
-import net.sf.saxon.s9api.SaxonApiException;
-
-import java.util.logging.Logger;
-import java.util.Hashtable;
-import java.util.Set;
-import java.util.HashSet;
-
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.model.RuntimeValue;
-import com.xmlcalabash.model.Step;
-import com.xmlcalabash.model.Input;
-import com.xmlcalabash.model.DeclareStep;
-
 
 import innovimax.quixproc.codex.util.StepContext;
 
+import java.util.HashSet;
+import java.util.Hashtable;
+import java.util.Set;
+import java.util.logging.Logger;
+
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XdmNode;
+
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRunnable;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.model.DeclareStep;
+import com.xmlcalabash.model.Input;
+import com.xmlcalabash.model.RuntimeValue;
+import com.xmlcalabash.model.Step;
+// Innovimax: new import
+
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 7, 2008
+ * Time: 8:02:28 AM
+ * To change this template use File | Settings | File Templates.
+ */
 public abstract class XStep implements XProcRunnable 
 {
     protected XProcRuntime runtime = null;
@@ -64,7 +71,11 @@ public abstract class XStep implements XProcRunnable
             name = step.getName();
         }
         // Innovimax: set step mode
-        setStepMode();         
+        setStepMode();          
+    }
+
+    public Step getStep() {
+        return step;
     }
 
     public XdmNode getNode() {
@@ -188,6 +199,10 @@ public abstract class XStep implements XProcRunnable
         options.clear();
     }
 
+    public void clearParameters() {
+        parameters.clear();
+    }
+
     public Set<QName> getParameters() {
         return getParameters("*");
     }
@@ -287,7 +302,7 @@ public abstract class XStep implements XProcRunnable
     public abstract void instantiate(Step step);
     public abstract void reset();    
     // Innovimax: desactivated function
-    //public abstract void run() throws SaxonApiException;   
+    //public abstract void run() throws SaxonApiException;       
 
     public void error(XdmNode node, String message, QName code) {
         runtime.error(this, node, message, code);
@@ -322,6 +337,7 @@ public abstract class XStep implements XProcRunnable
     //*************************************************************************                
     
     private boolean streamed = true; // Innovimax: new property    
+    private boolean streamAll = false; // Innovimax: new property    
     private boolean running = true; // Innovimax: new property    
     protected long threadId = 0; // Innovimax: new property        
     protected StepContext stepContext = new StepContext(); // Innovimax: new property    
@@ -352,28 +368,58 @@ public abstract class XStep implements XProcRunnable
 
     // Innovimax: new function
     private void setStepMode() {    
-        String mode = getExtensionAttribute(XProcConstants.ix_mode);                
-        if (mode != null) {            
-            streamed = !mode.equals("dom");
-            if (!streamed) {
-                runtime.getTracer().debug(this,null,-1,null,null,"  STEP > FORCE DOM MODE");
-            }
-        }     
-        if (streamed && runtime.isDOMAll()) {
-            runtime.getTracer().debug(this,null,-1,null,null,"  STEP > FORCE DOM MODE");
+        if (runtime.isDOMAll()) {
             streamed = false;
-        }        
+            streamAll = false;
+        } else {
+            String mode = getExtensionAttribute(XProcConstants.ix_mode);                
+            if (mode == null) {            
+                streamed = !runtime.isDOMAll();
+                streamAll = runtime.isStreamAll();
+            } else {
+                if (mode.equals("dom")) {
+                    streamed = false;
+                    streamAll = false;   
+                } else if (mode.equals("stream")) {               
+                    streamed = true;
+                    streamAll = true;   
+                } else if (mode.equals("stream-or-dom")) {               
+                    streamed = true;
+                    streamAll = false;   
+                } else {
+                    streamed = true;
+                    streamAll = runtime.isStreamAll(); 
+                }
+            }                        
+        }     
+        if (streamAll) {
+            runtime.getTracer().debug(this,null,-1,null,null,"  STEP > MODE IS STREAM");
+        } else if (streamed) {
+            runtime.getTracer().debug(this,null,-1,null,null,"  STEP > MODE IS STREAM OR DOM");            
+        } else {
+            runtime.getTracer().debug(this,null,-1,null,null,"  STEP > MODE IS DOM");                    
+        }          
     }
     
     // Innovimax: new function
     public boolean isStreamed() {
         return streamed;
-    }    
+    }            
     
     // Innovimax: new function
     public void setStreamed(boolean streamed) {
-        this.streamed = streamed;
-    }     
+        this.streamed = streamed;        
+    }    
+    
+    // Innovimax: new function
+    public boolean isStreamAll() {
+        return streamAll;
+    }      
+    
+    // Innovimax: new function
+    public void setStreamAll(boolean streamAll) {
+        this.streamAll = streamAll;        
+    }       
     
     // Innovimax: new function
     public boolean isRunning() {      
@@ -388,11 +434,6 @@ public abstract class XStep implements XProcRunnable
     // Innovimax: new function
     public long threadId() {
         return threadId;
-    }     
-    
-    // Innovimax: new function
-    public Step getStep() {
-        return step;
     }      
     
     // Innovimax: new function
@@ -459,5 +500,5 @@ public abstract class XStep implements XProcRunnable
         this.parameters.putAll(parameters);    
         this.inScopeOptions.putAll(inScopeOptions);
         this.threadId = threadId;
-    }                   
+    }    
 }

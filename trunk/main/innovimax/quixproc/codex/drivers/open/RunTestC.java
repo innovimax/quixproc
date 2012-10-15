@@ -1,6 +1,6 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
+Copyright (C) 2011-2012 Innovimax
 All rights reserved.
 
 This program is free software; you can redistribute it and/or
@@ -26,7 +26,6 @@ import innovimax.quixproc.codex.util.open.Spy;
 import innovimax.quixproc.codex.util.open.Tracer;
 import innovimax.quixproc.codex.util.open.Waiter;
 
-import com.quixpath.interfaces.IQuiXPath;
 import com.xmlcalabash.drivers.RunTestReport;
 
 public class RunTestC

@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -33,5 +33,7 @@ public interface Waiting {
     public void check();
     public void check(boolean exit);
     public void check(String info);          
-    public void check(String info, boolean exit);        
+    public void check(String info, boolean exit);  
+    public void reset();
+    public void kill();      
 }

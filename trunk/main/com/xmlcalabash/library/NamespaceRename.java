@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,21 +22,33 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.library;
 
+import javax.xml.XMLConstants;
+
+import net.sf.saxon.om.FingerprintedQName;
+import net.sf.saxon.om.NameOfNode;
+import net.sf.saxon.om.NamespaceBinding;
+import net.sf.saxon.om.NodeInfo;
+import net.sf.saxon.om.NodeName;
+import net.sf.saxon.s9api.Axis;
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.s9api.XdmSequenceIterator;
+import net.sf.saxon.type.SimpleType;
+
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.util.ProcessMatchingNodes;
-import com.xmlcalabash.util.ProcessMatch;
 import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.model.RuntimeValue;
-import net.sf.saxon.s9api.*;
-import net.sf.saxon.om.NodeInfo;
-import net.sf.saxon.om.NamePool;
-
-import javax.xml.XMLConstants;
-
 import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.ProcessMatch;
+import com.xmlcalabash.util.ProcessMatchingNodes;
 
+/**
+ *
+ * @author ndw
+ */
 public class NamespaceRename extends DefaultStep implements ProcessMatchingNodes {
     private static final QName _from = new QName("from");
     private static final QName _to = new QName("to");
@@ -89,11 +101,11 @@ public class NamespaceRename extends DefaultStep implements ProcessMatchingNodes
         }
 
         if (from.equals(to)) {
-            result.write(stepContext, source.read(stepContext));
+            result.write(stepContext,source.read(stepContext));
         } else {
             matcher = new ProcessMatch(runtime, this);
             matcher.match(source.read(stepContext), new RuntimeValue("*", step.getNode()));
-            result.write(stepContext, matcher.getResult());
+            result.write(stepContext,matcher.getResult());
         }
 
         if (source.moreDocuments(stepContext)) {
@@ -111,41 +123,35 @@ public class NamespaceRename extends DefaultStep implements ProcessMatchingNodes
 
     public boolean processStartElement(XdmNode node) throws SaxonApiException {
         NodeInfo inode = node.getUnderlyingNode();
-        NamePool pool = inode.getNamePool();
-        int inscopeNS[] = inode.getDeclaredNamespaces(null);
-        int newNS[] = null;
-        int nameCode = inode.getNameCode();
-        int typeCode = inode.getTypeAnnotation() & NamePool.FP_MASK;
-
+        NamespaceBinding inscopeNS[] = inode.getDeclaredNamespaces(null);
+        NamespaceBinding newNS[] = null;
+    
         if ("attributes".equals(applyTo)) {
-            matcher.addStartElement(nameCode, typeCode, inscopeNS);
+          matcher.addStartElement(new NameOfNode(inode), inode.getSchemaType(), inscopeNS);
         } else {
             if (inscopeNS.length > 0) {
                 int countNS = 0;
 
                 for (int pos = 0; pos < inscopeNS.length; pos++) {
-                    int ns = inscopeNS[pos];
-                    String uri = pool.getURIFromNamespaceCode(ns);
-                    if (!from.equals(uri) || !"".equals(to)) {
+                  NamespaceBinding ns = inscopeNS[pos];
+                  String uri = ns.getURI();    
+                  if (!from.equals(uri) || !"".equals(to)) {
                         countNS++;
                     }
                 }
 
-                newNS = new int[countNS];
+                newNS = new NamespaceBinding[countNS];
                 int newPos = 0;
                 for (int pos = 0; pos < inscopeNS.length; pos++) {
-                    int ns = inscopeNS[pos];
-                    String pfx = pool.getPrefixFromNamespaceCode(ns);
-                    String uri = pool.getURIFromNamespaceCode(ns);
-                    if (from.equals(uri)) {
+                  NamespaceBinding ns = inscopeNS[pos];
+                  String pfx = ns.getPrefix();
+                  String uri = ns.getURI();                                 
+                  if (from.equals(uri)) {
                         if ("".equals(to)) {
                             // Nevermind, we're throwing the namespace away
                         } else {
-                            int newns = pool.getNamespaceCode(pfx,to);
-                            if (newns < 0) {
-                                newns = pool.allocateNamespaceCode(pfx,to);
-                            }
-                            newNS[newPos++] = newns;
+                          NamespaceBinding newns = new NamespaceBinding(pfx,to);
+                          newNS[newPos++] = newns;
                         }
                     } else {
                         newNS[newPos++] = ns;
@@ -155,18 +161,19 @@ public class NamespaceRename extends DefaultStep implements ProcessMatchingNodes
 
             // Careful, we're messing with the namespace bindings
             // Make sure the nameCode is right...
-            String pfx = pool.getPrefix(nameCode);
-            String uri = pool.getURI(nameCode);
-
+            NodeName nameCode = new NameOfNode(inode);
+            String pfx = nameCode.getPrefix();
+            String uri = nameCode.getURI();
+            
             if (from.equals(uri)) {
                 if ("".equals(to)) {
                     pfx = "";
                 }
 
-                nameCode = pool.allocate(pfx,to,node.getNodeName().getLocalName());
+                nameCode = new FingerprintedQName(pfx,to,nameCode.getLocalPart());
             }
 
-            matcher.addStartElement(nameCode, typeCode, newNS);
+            matcher.addStartElement(nameCode, inode.getSchemaType(), newNS);
         }
 
         if (!"elements".equals(applyTo)) {
@@ -174,19 +181,16 @@ public class NamespaceRename extends DefaultStep implements ProcessMatchingNodes
             while (iter.hasNext()) {
                 XdmNode attr = (XdmNode) iter.next();
                 inode = attr.getUnderlyingNode();
-                pool = inode.getNamePool();
-                nameCode = inode.getNameCode();
-                typeCode = inode.getTypeAnnotation() & NamePool.FP_MASK;
-                String pfx = pool.getPrefix(nameCode);
-                String uri = pool.getURI(nameCode);
-
+                NodeName nameCode = new NameOfNode(inode);
+                String pfx = nameCode.getPrefix();
+                String uri = nameCode.getURI();
                 if (from.equals(uri)) {
                     if ("".equals(pfx)) {
                         pfx = "_1";
                     }
-                    nameCode = pool.allocate(pfx,to,attr.getNodeName().getLocalName());
+                    nameCode = new FingerprintedQName(pfx,to,nameCode.getLocalPart());
                 }
-                matcher.addAttribute(nameCode, typeCode, attr.getStringValue());
+                matcher.addAttribute(nameCode, (SimpleType) inode.getSchemaType(), attr.getStringValue());
             }
         } else {
             matcher.addAttributes(node);

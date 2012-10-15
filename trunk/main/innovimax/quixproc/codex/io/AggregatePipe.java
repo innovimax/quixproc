@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -63,7 +63,7 @@ public class AggregatePipe implements ReadablePipe {
         pipes.add(pipe);
     }
     
-    public DocumentSequence documents() {
+    public DocumentSequence documents(StepContext stepContext) {
         // Innovimax : always empty for the moment... to complete !
         return documents;
     }    
@@ -83,6 +83,10 @@ public class AggregatePipe implements ReadablePipe {
     public void canReadSequence(boolean sequence) {
         readSeqOk = sequence;
     }     
+    
+    public boolean readSequence() {
+        return readSeqOk;
+    }    
     
     public boolean closed(StepContext stepContext) {                        
         List<ReadablePipe> pipes = c_pipes.get(new Integer(stepContext.curChannel));
@@ -162,6 +166,10 @@ public class AggregatePipe implements ReadablePipe {
         c_index.put(new Integer(stepContext.curChannel), new Integer(0));
         currentPipe = null;        
     }      
+        
+    public String sequenceInfos() {        
+        return documents.toString();
+    }       
                          
 }
 

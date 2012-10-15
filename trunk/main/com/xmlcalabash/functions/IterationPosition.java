@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,20 +21,22 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.functions;
 
-import com.xmlcalabash.runtime.XCompoundStep;
 import net.sf.saxon.expr.XPathContext;
 import net.sf.saxon.lib.ExtensionFunctionCall;
 import net.sf.saxon.lib.ExtensionFunctionDefinition;
-import net.sf.saxon.trans.XPathException;
-import net.sf.saxon.om.StructuredQName;
 import net.sf.saxon.om.SequenceIterator;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.runtime.XStep;
+import net.sf.saxon.om.StructuredQName;
+import net.sf.saxon.trans.XPathException;
 import net.sf.saxon.tree.iter.SingletonIterator;
 import net.sf.saxon.value.Int64Value;
 import net.sf.saxon.value.SequenceType;
+
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcData;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.runtime.XCompoundStep;
+import com.xmlcalabash.runtime.XStep;
 
 //
 // The contents of this file are subject to the Mozilla Public License Version 1.0 (the "License");
@@ -59,15 +61,24 @@ import net.sf.saxon.value.SequenceType;
  */
 
 public class IterationPosition extends ExtensionFunctionDefinition {
-    private XProcRuntime runtime;
     private static StructuredQName funcname = new StructuredQName("p", XProcConstants.NS_XPROC, "iteration-position");
+    private ThreadLocal<XProcRuntime> tl_runtime = new ThreadLocal<XProcRuntime>() {
+        protected synchronized XProcRuntime initialValue() {
+            return null;
+        }
+    };
+    
+    private XProcRuntime runtime = null; // Innovimax: new property    
 
     protected IterationPosition() {
         // you can't call this one
     }
 
+    // Innovimax: modified constructor
     public IterationPosition(XProcRuntime runtime) {
-        this.runtime = runtime;
+        // Innovimax: desactivate ThreadLocal 
+        //tl_runtime.set(runtime);
+        this.runtime = runtime; 
     }
 
     public StructuredQName getFunctionQName() {
@@ -93,16 +104,21 @@ public class IterationPosition extends ExtensionFunctionDefinition {
     public ExtensionFunctionCall makeCallExpression() {
         return new IterationPositionCall();
     }
-
+    
     private class IterationPositionCall extends ExtensionFunctionCall {
+        // Innovimax: modified function
         public SequenceIterator call(SequenceIterator[] arguments, XPathContext context) throws XPathException {
           
             // Innovimax: desactivated function
             if (true) throw new RuntimeException("IterationPosition is desactivated");
                       
-            XStep step = runtime.getXProcData().getStep();
+            // Innovimax: desactivate ThreadLocal
+            //XProcRuntime runtime = tl_runtime.get();    
+            XProcData data = runtime.getXProcData();
+            XStep step = data.getStep();
             // FIXME: this can't be the best way to do this...
-            if (!(step instanceof XCompoundStep)) {
+            // step == null in use-when
+            if (step != null && !(step instanceof XCompoundStep)) {
                 throw XProcException.dynamicError(23);
             }
             return SingletonIterator.makeIterator(

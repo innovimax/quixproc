@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,29 +21,31 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.util;
 
-import net.sf.saxon.s9api.XdmNode;
+import java.util.Iterator;
+
 import net.sf.saxon.s9api.Axis;
-import net.sf.saxon.s9api.XdmSequenceIterator;
-import net.sf.saxon.s9api.XdmNodeKind;
 import net.sf.saxon.s9api.QName;
-import net.sf.saxon.s9api.XdmItem;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.SaxonApiUncheckedException;
 import net.sf.saxon.s9api.XPathCompiler;
 import net.sf.saxon.s9api.XPathExecutable;
-import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XPathSelector;
-import net.sf.saxon.s9api.XdmValue;
-import net.sf.saxon.s9api.SaxonApiUncheckedException;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.s9api.XdmNodeKind;
+import net.sf.saxon.s9api.XdmSequenceIterator;
 import net.sf.saxon.trans.XPathException;
-
-import java.util.Iterator;
-import java.util.Vector;
-import java.util.Hashtable;
 
 import com.xmlcalabash.core.XProcConstants;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.model.RuntimeValue;
 
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Apr 23, 2008
+ * Time: 12:39:28 PM
+ * To change this template use File | Settings | File Templates.
+ */
 public class RelevantNodes implements Iterable<XdmNode> {
     private static QName use_when = new QName("", "use-when");
     private static QName p_use_when = new QName(XProcConstants.NS_XPROC, "use-when");
@@ -171,6 +173,7 @@ public class RelevantNodes implements Iterable<XdmNode> {
 
             try {
                 XPathCompiler xcomp = runtime.getProcessor().newXPathCompiler();
+                // FIXME: Static base URI here?
 
                 XdmSequenceIterator nsIter = element.axisIterator(Axis.NAMESPACE);
                 while (nsIter.hasNext()) {

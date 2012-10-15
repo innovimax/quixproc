@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,34 +22,38 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.io;
 
-import java.io.File;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URLConnection;
-
-import net.sf.saxon.s9api.DocumentBuilder;
-import net.sf.saxon.s9api.Processor;
-import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.Serializer;
-import net.sf.saxon.s9api.XQueryCompiler;
-import net.sf.saxon.s9api.XQueryEvaluator;
-import net.sf.saxon.s9api.XQueryExecutable;
-import net.sf.saxon.s9api.XdmNode;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.model.Serialization;
-import com.xmlcalabash.model.Step;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.net.URL;
-import java.util.Map;  // Innovimax: new import
-import java.util.HashMap;  // Innovimax: new import
-
-
 import innovimax.quixproc.codex.util.PipedDocument;
 import innovimax.quixproc.codex.util.StepContext;
-import innovimax.quixproc.datamodel.QuixEvent;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.util.HashMap;
+import java.util.Map;
+
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.Serializer;
+import net.sf.saxon.s9api.XdmNode;
+
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.model.Serialization;
+import com.xmlcalabash.model.Step;
+import com.xmlcalabash.util.S9apiUtils;
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
+
+/**
+ *
+ * @author ndw
+ */
 public class WritableDocument implements WritablePipe {
     private Serializer serializer = null;
     private int writeCount = 0;
@@ -88,29 +92,23 @@ public class WritableDocument implements WritablePipe {
 
     }
 
+
     public void canWriteSequence(boolean sequence) {
         writeSeqOk = sequence;
     }
-    
-    public int documentsWritten() {
-        return writeCount;
+
+    public boolean writeSequence() {
+        return writeSeqOk;
     }
 
-    public int documentsRead() {
-        return 1;
+    public void setWriter(Step step) {
+        writer = step;
     }
     
     public void write(XdmNode doc) {
-        try {            
-            Processor qtproc = runtime.getProcessor();
-            DocumentBuilder builder = qtproc.newDocumentBuilder();
-            builder.setBaseURI(new URI("http://example.com/"));
-            XQueryCompiler xqcomp = qtproc.newXQueryCompiler();
-            XQueryExecutable xqexec = xqcomp.compile(".");
-            XQueryEvaluator xqeval = xqexec.load();
-            xqeval.setContextItem(doc);
+        try {
+            serializer = new Serializer();
 
-            serializer = new Serializer();            
             serializer.setOutputProperty(Serializer.Property.BYTE_ORDER_MARK, serial.getByteOrderMark() ? "yes" : "no");
             // FIXME: support CDATA_SECTION_ELEMENTS
             if (serial.getDoctypePublic() != null) {
@@ -149,62 +147,142 @@ public class WritableDocument implements WritablePipe {
             if (serial.getVersion() != null) {
                 serializer.setOutputProperty(Serializer.Property.VERSION, serial.getVersion());
             }
-            
-            if (ostream != null) {                
+
+            if (ostream != null) {
                 serializer.setOutputStream(ostream);
-            } else if (uri == null) {                
+            } else if (uri == null) {
                 serializer.setOutputStream(System.out);
-            } else {                
-                try {                    
+            } else {
+                try {
                     // Attempt to handle both the case where we're writing to a URI scheme that
                     // supports writing (like FTP?) and the case where we're writing to a file
                     // (which apparently *isn't* a scheme we can write to, WTF?)
                     URI ouri = new URI(uri);
 
-                    if ("file".equals(ouri.getScheme())) {                        
-                        runtime.finest(null, null, "Attempt to write file: " + uri);                        
-                        File file = new File(ouri.toURL().getFile());
-                        serializer.setOutputFile(file);                        
-                    } else {                        
+                    if ("file".equals(ouri.getScheme())) {
+                        runtime.finest(null, null, "Attempt to write file: " + uri);
+                        File file = new File(decodeUTF8(ouri.toURL().getFile()));
+                        serializer.setOutputFile(file);
+                    } else {
                         runtime.finest(null, null, "Attempt to write: " + uri);
                         URL url = new URL(uri);
-                        final URLConnection conn = url.openConnection();                        
+                        final URLConnection conn = url.openConnection();
                         conn.setDoOutput(true);
-                        ostream = conn.getOutputStream();                        
-                        serializer.setOutputStream(ostream);                        
+                        ostream = conn.getOutputStream();
+                        serializer.setOutputStream(ostream);
                     }
-                } catch (IOException ex) {                    
+                } catch (IOException ex) {
                     runtime.error(ex);
-                } catch (URISyntaxException use) {                    
+                } catch (URISyntaxException use) {
                     runtime.error(use);
                 }
-            }            
-            xqeval.setDestination(serializer);
-            xqeval.run();
-
-            if (ostream != null) {
-                try {
-                    ostream.close();
-                } catch (IOException ex) {
-                    throw new XProcException(ex);
-                }
             }
-            
+
+            S9apiUtils.serialize(runtime, doc, serializer);
+
             if (uri == null && runtime.getDebug()) {
                 System.out.println("\n--<document boundary>--------------------------------------------------------------------------");
             }
-        } catch (URISyntaxException use) {
-            use.printStackTrace();
-            throw new XProcException(use);
         } catch (SaxonApiException sae) {
-            sae.printStackTrace();
+            if (runtime.getDebug()) {
+                sae.printStackTrace();
+            }
             throw new XProcException(sae);
         }
 
         if (writer != null) {
             runtime.finest(null, writer.getNode(), writer.getName() + " wrote '" + (doc == null ? "null" : doc.getBaseURI()));
         }
-    }    
+    }
+
+    public int documentsWritten() {
+        return writeCount;
+    }
+
+    public int documentsRead() {
+        return 1;
+    }
+
+    /**
+     * Decode UTF-8/URL encoded strings.
+     *
+     * @param s the string to be decoded
+     * @return the decoded string
+     */
+    private String decodeUTF8(String s) {
+        if (s == null) {
+            return null;
+        }
+
+        if(s.indexOf('%') == -1) {
+            //Optimization, nothing to uncorrect here
+            return s;
+        }
+
+        StringBuilder sbuf = new StringBuilder();
+        int l = s.length();
+        int ch = -1;
+        int b = 0, sumb = 0;
+        boolean applyUTF8dec = false;
+
+    	for (int i = 0, more = -1; i < l; i++) {
+            /* Get next byte b from URL segment s */
+    	    char current = s.charAt(i);
+    	    ch = current;
+    		switch (ch) {
+    			case '%' :
+    			    if (i + 2 < s.length()) {
+    			        ch = s.charAt(++i);
+    			        int hb =
+    			            (Character.isDigit((char) ch) ? ch - '0' : 10 + Character.toLowerCase((char) ch) - 'a')
+    			            & 0xF;
+    			        ch = s.charAt(++i);
+    			        int lb =
+    			            (Character.isDigit((char) ch) ? ch - '0' : 10 + Character.toLowerCase((char) ch) - 'a')
+    			            & 0xF;
+    			        b = (hb << 4) | lb;
+    			        applyUTF8dec = true;
+    			    }
+    				break;
+    			default :
+    				b = ch;
+                    applyUTF8dec = false;
+    		}
+
+    		/* Decode byte b as UTF-8, sumb collects incomplete chars */
+            if (applyUTF8dec) {
+      		    if ((b & 0xc0) == 0x80) { // 10xxxxxx (continuation byte)
+      			    sumb = (sumb << 6) | (b & 0x3f); // Add 6 bits to sumb
+      			    if (--more == 0) {
+                        sbuf.append((char) sumb); // Add char to sbuf
+                    }
+      		    } else if ((b & 0x80) == 0x00) { // 0xxxxxxx (yields 7 bits)
+      				sbuf.append((char) b); // Store in sbuf
+      			} else if ((b & 0xe0) == 0xc0) { // 110xxxxx (yields 5 bits)
+      				sumb = b & 0x1f;
+      				more = 1; // Expect 1 more byte
+      			} else if ((b & 0xf0) == 0xe0) { // 1110xxxx (yields 4 bits)
+      				sumb = b & 0x0f;
+      				more = 2; // Expect 2 more bytes
+      			} else if ((b & 0xf8) == 0xf0) { // 11110xxx (yields 3 bits)
+      				sumb = b & 0x07;
+      				more = 3; // Expect 3 more bytes
+      			} else if ((b & 0xfc) == 0xf8) { // 111110xx (yields 2 bits)
+      				sumb = b & 0x03;
+      				more = 4; // Expect 4 more bytes
+      			} else /*if ((b & 0xfe) == 0xfc)*/ { // 1111110x (yields 1 bit)
+      				sumb = b & 0x01;
+      				more = 5; // Expect 5 more bytes
+      			}
+            } else {
+                sbuf.append(current);
+                // Do not expect other continuation.
+                more = -1;
+            }
+    		/* We don't test if the UTF-8 encoding is well-formed */
+    	}
+    	return sbuf.toString();
+    }
     
     //*************************************************************************
     //*************************************************************************        
@@ -220,11 +298,6 @@ public class WritableDocument implements WritablePipe {
     public void resetWriter(StepContext stepContext) {
         throw new UnsupportedOperationException("You can't resetWriter a WritableDocument");
     }       
-
-    // Innovimax: new function
-    public void close(StepContext stepContext) {
-        // nop;
-    }
     
     // Innovimax: new function
     public Step getWriter(StepContext stepContext) {
@@ -241,6 +314,18 @@ public class WritableDocument implements WritablePipe {
         runtime.getTracer().debug(null,stepContext,-1,this,null,"    DOCU > WRITE ");        
         write(doc);
     }  
+    
+    // Innovimax: new function
+    public void close(StepContext stepContext)
+    {
+        if (ostream != null) {
+           try {
+              ostream.close();
+           } catch (IOException ex) {
+              throw new RuntimeException(ex.getMessage(),ex);
+           }
+        }
+    }    
     
     // Innovimax: new function
     public void addChannel(int channel) {      
@@ -266,12 +351,19 @@ public class WritableDocument implements WritablePipe {
         throw new UnsupportedOperationException("You can't resetWriter a WritableDocument");
     }
 
-    public void close() {
-        // nop;
-    }
-
     public void setWriter(Step step) {
         writer = step;
-    }    
-*/
+    }   
+    
+    public void close()
+    {
+        if (ostream != null) {
+           try {
+              ostream.close();
+           } catch (IOException ex) {
+              throw new RuntimeException(ex.getMessage(),ex);
+           }
+        }
+    }     
+*/    
 }

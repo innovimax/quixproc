@@ -1,6 +1,6 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
+Copyright (C) 2011-2012 Innovimax
 All rights reserved.
 
 This program is free software; you can redistribute it and/or
@@ -19,18 +19,17 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 package innovimax.quixproc.codex.util;
 
-import net.sf.saxon.s9api.Processor;
-
-import com.quixpath.exceptions.QuiXPathException;
-import com.quixpath.interfaces.IQuiXPathExpression;
-
-import innovimax.quixproc.datamodel.MatchEvent;
 import innovimax.quixproc.datamodel.IStream;
+import innovimax.quixproc.datamodel.MatchEvent;
 import innovimax.quixproc.datamodel.QuixException;
 import innovimax.quixproc.util.MatchException;
 import innovimax.quixproc.util.MatchHandler;
 import innovimax.quixproc.util.MatchProcess;
 import innovimax.quixproc.util.MatchQueue;
+import net.sf.saxon.s9api.Processor;
+
+import com.quixpath.exceptions.QuiXPathException;
+import com.quixpath.interfaces.IQuiXPathExpression;
 
 public class XPathMatcher implements Runnable {
   private EventReader  reader   = null;
@@ -44,11 +43,11 @@ public class XPathMatcher implements Runnable {
     private final Processor     processor;
     private IQuiXPathExpression expression;
 
-    private QuiXPathMatcher(Processor processor, IEQuiXPath quixpath, String xpath, boolean matchSubtree) {
+    private QuiXPathMatcher(Processor processor, IEQuiXPath quixpath, String xpath, boolean matchSubtree, boolean canUseTree) {
       this.xpath = xpath;
       this.processor = processor;
       try {
-        this.expression = quixpath.compile(xpath);
+        this.expression = quixpath.compile(xpath, new SimpleStaticContext(), canUseTree);
       } catch (QuiXPathException e) {
         e.printStackTrace();
       }
@@ -84,14 +83,13 @@ public class XPathMatcher implements Runnable {
 
   }
 
-  public XPathMatcher(Processor processor, IEQuiXPath quixpath, EventReader reader, MatchHandler callback, String xpath, boolean multiplex) {
+  public XPathMatcher(Processor processor, IEQuiXPath quixpath, EventReader reader, MatchHandler callback, String xpath, boolean multiplex, boolean canUseTree) {
     this.reader = reader;
     this.callback = callback;
     if (!xpath.startsWith("/")) {
       xpath = "//" + xpath; // DEBUG : A MODIFIER
     }
-    System.err.println(">>> XPathMatcher.XPATH=" + xpath);
-    process = new QuiXPathMatcher(processor, quixpath, xpath, multiplex);
+    process = new QuiXPathMatcher(processor, quixpath, xpath, multiplex, canUseTree);
   }
 
   public void run() {

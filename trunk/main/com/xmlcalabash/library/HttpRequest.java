@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -19,62 +19,90 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
-
 package com.xmlcalabash.library;
 
-import com.xmlcalabash.util.HttpUtils;
+/*
+ * HttpRequest.java
+ *
+ * Copyright 2008 Mark Logic Corporation.
+ * Portions Copyright 2007 Sun Microsystems, Inc.
+ * All rights reserved.
+ *
+ * The contents of this file are subject to the terms of either the GNU
+ * General Public License Version 2 only ("GPL") or the Common
+ * Development and Distribution License("CDDL") (collectively, the
+ * "License"). You may not use this file except in compliance with the
+ * License. You can obtain a copy of the License at
+ * https://runtime.dev.java.net/public/CDDL+GPL.html or
+ * docs/CDDL+GPL.txt in the distribution. See the License for the
+ * specific language governing permissions and limitations under the
+ * License. When distributing the software, include this License Header
+ * Notice in each file and include the License file at docs/CDDL+GPL.txt.
+ */
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.StringWriter;
+import java.io.UnsupportedEncodingException;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.ProxySelector;
+import java.net.URI;
+import java.util.List;
+import java.util.Vector;
+
+import javax.xml.XMLConstants;
+
+import net.sf.saxon.s9api.Axis;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.XdmSequenceIterator;
-import net.sf.saxon.s9api.Axis;
 import net.sf.saxon.s9api.Serializer;
-import net.sf.saxon.s9api.DocumentBuilder;
+import net.sf.saxon.s9api.XdmNode;
 import net.sf.saxon.s9api.XdmNodeKind;
+import net.sf.saxon.s9api.XdmSequenceIterator;
+
+import org.apache.commons.httpclient.Cookie;
+import org.apache.commons.httpclient.DefaultHttpMethodRetryHandler;
+import org.apache.commons.httpclient.Header;
+import org.apache.commons.httpclient.HeaderElement;
+import org.apache.commons.httpclient.HttpClient;
+import org.apache.commons.httpclient.HttpMethodBase;
+import org.apache.commons.httpclient.HttpState;
+import org.apache.commons.httpclient.NameValuePair;
+import org.apache.commons.httpclient.UsernamePasswordCredentials;
+import org.apache.commons.httpclient.auth.AuthScope;
+import org.apache.commons.httpclient.cookie.CookiePolicy;
+import org.apache.commons.httpclient.methods.ByteArrayRequestEntity;
+import org.apache.commons.httpclient.methods.DeleteMethod;
+import org.apache.commons.httpclient.methods.EntityEnclosingMethod;
+import org.apache.commons.httpclient.methods.GetMethod;
+import org.apache.commons.httpclient.methods.HeadMethod;
+import org.apache.commons.httpclient.methods.PostMethod;
+import org.apache.commons.httpclient.methods.PutMethod;
+import org.apache.commons.httpclient.methods.StringRequestEntity;
+import org.apache.commons.httpclient.params.HttpMethodParams;
+import org.json.JSONTokener;
+import org.xml.sax.InputSource;
+
 import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.Base64;
+import com.xmlcalabash.util.HttpUtils;
+import com.xmlcalabash.util.JSONtoXML;
+import com.xmlcalabash.util.MIMEReader;
+import com.xmlcalabash.util.RelevantNodes;
 import com.xmlcalabash.util.S9apiUtils;
 import com.xmlcalabash.util.TreeWriter;
-import com.xmlcalabash.util.MIMEReader;
-import com.xmlcalabash.util.Base64;
-import com.xmlcalabash.util.RelevantNodes;
-
-import javax.xml.XMLConstants;
-import javax.xml.transform.sax.SAXSource;
-import java.io.UnsupportedEncodingException;
-import java.util.Vector;
-import java.util.List;
-import java.net.URI;
-import java.net.ProxySelector;
-import java.net.Proxy;
-import java.net.InetSocketAddress;
-import java.io.IOException;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.InputStream;
-import java.io.StringWriter;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileInputStream;
-
-import org.apache.commons.httpclient.Cookie;
-import org.apache.commons.httpclient.HttpState;
-import org.apache.commons.httpclient.cookie.CookiePolicy;
-import org.xml.sax.InputSource;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.DefaultHttpMethodRetryHandler;
-import org.apache.commons.httpclient.HeaderElement;
-import org.apache.commons.httpclient.NameValuePair;
-import org.apache.commons.httpclient.HttpMethodBase;
-import org.apache.commons.httpclient.Header;
-import org.apache.commons.httpclient.UsernamePasswordCredentials;
-import org.apache.commons.httpclient.auth.AuthScope;
-import org.apache.commons.httpclient.params.HttpMethodParams;
-import org.apache.commons.httpclient.methods.*;
+import com.xmlcalabash.util.XMLtoJSON;
 
 public class HttpRequest extends DefaultStep {
     private static final QName c_request = new QName("c", XProcConstants.NS_XPROC_STEP, "request");
@@ -100,6 +128,7 @@ public class HttpRequest extends DefaultStep {
     public static final QName _disposition = new QName("", "disposition");
     public static final QName _status = new QName("", "status");
     public static final QName _boundary = new QName("", "boundary");
+    public static final QName _charset = new QName("", "charset");
 
     private static final int bufSize = 912 * 8; // A multiple of 3, 4, and 75 for base64 line breaking
 
@@ -408,7 +437,7 @@ public class HttpRequest extends DefaultStep {
 
         XdmNode resultNode = tree.getResult();
 
-        result.write(stepContext, resultNode);
+        result.write(stepContext,resultNode);
     }
 
     private GetMethod doGet() {
@@ -497,39 +526,53 @@ public class HttpRequest extends DefaultStep {
 
         // FIXME: This sucks rocks. I want to write the data to be posted, not provide some way to read it
         String postContent = null;
+        String encoding = body.getAttributeValue(_encoding);
         try {
-            if (xmlContentType(contentType)) {
-                Serializer serializer = makeSerializer();
-
-                if (!S9apiUtils.isDocumentContent(body.axisIterator(Axis.CHILD))) {
-                    throw XProcException.stepError(22);
-                }
-
-                Vector<XdmNode> content = new Vector<XdmNode> ();
-                XdmSequenceIterator iter = body.axisIterator(Axis.CHILD);
-                while (iter.hasNext()) {
-                    XdmNode node = (XdmNode) iter.next();
-                    content.add(node);
-                }
-
-                // FIXME: set serializer properties appropriately!
+            if ("base64".equals(encoding)) {
+                String charset = body.getAttributeValue(_charset);
+                // FIXME: is utf-8 the right default?
+                if (charset == null) { charset = "utf-8"; }
+                String escapedContent = decodeBase64(body, charset);
                 StringWriter writer = new StringWriter();
-                serializer.setOutputWriter(writer);
-                S9apiUtils.serialize(runtime, content, serializer);
+                writer.write(escapedContent);
                 writer.close();
                 postContent = writer.toString();
             } else {
-                StringWriter writer = new StringWriter();
-                XdmSequenceIterator iter = body.axisIterator(Axis.CHILD);
-                while (iter.hasNext()) {
-                    XdmNode node = (XdmNode) iter.next();
-                    if (node.getNodeKind() != XdmNodeKind.TEXT) {
-                        throw XProcException.stepError(28);
+                if (jsonContentType(contentType)) {
+                    postContent = XMLtoJSON.convert(body);
+                } else if (xmlContentType(contentType)) {
+                    Serializer serializer = makeSerializer();
+
+                    if (!S9apiUtils.isDocumentContent(body.axisIterator(Axis.CHILD))) {
+                        throw XProcException.stepError(22);
                     }
-                    writer.write(node.getStringValue());
+
+                    Vector<XdmNode> content = new Vector<XdmNode> ();
+                    XdmSequenceIterator iter = body.axisIterator(Axis.CHILD);
+                    while (iter.hasNext()) {
+                        XdmNode node = (XdmNode) iter.next();
+                        content.add(node);
+                    }
+
+                    // FIXME: set serializer properties appropriately!
+                    StringWriter writer = new StringWriter();
+                    serializer.setOutputWriter(writer);
+                    S9apiUtils.serialize(runtime, content, serializer);
+                    writer.close();
+                    postContent = writer.toString();
+                } else {
+                    StringWriter writer = new StringWriter();
+                    XdmSequenceIterator iter = body.axisIterator(Axis.CHILD);
+                    while (iter.hasNext()) {
+                        XdmNode node = (XdmNode) iter.next();
+                        if (node.getNodeKind() != XdmNodeKind.TEXT) {
+                            throw XProcException.stepError(28);
+                        }
+                        writer.write(node.getStringValue());
+                    }
+                    writer.close();
+                    postContent = writer.toString();
                 }
-                writer.close();
-                postContent = writer.toString();
             }
 
             StringRequestEntity requestEntity = new StringRequestEntity(postContent, contentType, "UTF-8");
@@ -669,6 +712,8 @@ public class HttpRequest extends DefaultStep {
                     writer.close();
                     //postContent += writer.toString();
                     byteContent.append(writer.toString());
+                } else if (jsonContentType(contentType)) {
+                    byteContent.append(XMLtoJSON.convert(body));
                 } else if (!encodeBinary && "base64".equals(bodyEncoding)) {
                     byte[] decoded = Base64.decode(body.getStringValue());
                     byteContent.append(decoded, decoded.length);
@@ -807,6 +852,10 @@ public class HttpRequest extends DefaultStep {
         return HttpUtils.xmlContentType(contentType);
     }
 
+    private boolean jsonContentType(String contentType) {
+        return runtime.transparentJSON() && HttpUtils.jsonContentType(contentType);
+    }
+
     private boolean textContentType(String contentType) {
         return HttpUtils.textContentType(contentType);
     }
@@ -830,12 +879,12 @@ public class HttpRequest extends DefaultStep {
 
             tree.addEndElement();
         } else {
-            if (!detailed && xmlContentType(contentType)) {
+            if (!detailed && (xmlContentType(contentType) || jsonContentType(contentType))) {
                 readBodyContentPart(tree, bodyStream, contentType, charset);
             } else {
                 tree.addStartElement(XProcConstants.c_body);
                 tree.addAttribute(_content_type, contentType);
-                if (!xmlContentType(contentType) && !textContentType(contentType)) {
+                if (!xmlContentType(contentType) && !textContentType(contentType) && !jsonContentType(contentType)) {
                     tree.addAttribute(_encoding, "base64");
                 }
                 tree.startContent();
@@ -875,9 +924,7 @@ public class HttpRequest extends DefaultStep {
             if (xmlContentType(partType)) {
                 BufferedReader preader = new BufferedReader(new InputStreamReader(partStream, charset));
                 // Read it as XML
-                SAXSource source = new SAXSource(new InputSource(preader));
-                DocumentBuilder builder = runtime.getProcessor().newDocumentBuilder();
-                tree.addSubtree(builder.build(source));
+                tree.addSubtree(runtime.parse(new InputSource(preader)));
             } else if (textContentType(partType)) {
                 BufferedReader preader = new BufferedReader(new InputStreamReader(partStream, charset));
                 // Read it as text
@@ -944,9 +991,7 @@ public class HttpRequest extends DefaultStep {
     public void readBodyContentPart(TreeWriter tree, InputStream bodyStream, String contentType, String charset) throws SaxonApiException, IOException {
         if (xmlContentType(contentType)) {
             // Read it as XML
-            SAXSource source = new SAXSource(new InputSource(bodyStream));
-            DocumentBuilder builder = runtime.getProcessor().newDocumentBuilder();
-            tree.addSubtree(builder.build(source));
+            tree.addSubtree(runtime.parse(new InputSource(bodyStream)));
         } else if (textContentType(contentType)) {
             // Read it as text
 
@@ -959,6 +1004,11 @@ public class HttpRequest extends DefaultStep {
                 tree.addText(s);
                 len = reader.read(buf, 0, bufSize);
             }
+        } else if (jsonContentType(contentType)) {
+            InputStreamReader reader = new InputStreamReader(bodyStream);
+            JSONTokener jt = new JSONTokener(reader);
+            XdmNode jsonDoc = JSONtoXML.convert(runtime.getProcessor(), jt, runtime.jsonFlavor());
+            tree.addSubtree(jsonDoc);
         } else {
             // Read it as binary
             byte bytes[] = new byte[bufSize];
@@ -985,6 +1035,28 @@ public class HttpRequest extends DefaultStep {
             }
 
             tree.addText("\n"); // FIXME: should we be doing this?
+        }
+    }
+
+    private String extractText(XdmNode doc) {
+        String content = "";
+        XdmSequenceIterator iter = doc.axisIterator(Axis.CHILD);
+        while (iter.hasNext()) {
+            XdmNode child = (XdmNode) iter.next();
+            if (child.getNodeKind() == XdmNodeKind.ELEMENT || child.getNodeKind() == XdmNodeKind.TEXT) {
+                content += child.getStringValue();
+            }
+        }
+        return content;
+    }
+
+    private String decodeBase64(XdmNode doc, String charset) {
+        String content = extractText(doc);
+        byte[] decoded = Base64.decode(content);
+        try {
+            return new String(decoded, charset);
+        } catch (UnsupportedEncodingException uee) {
+            throw XProcException.stepError(10, uee);
         }
     }
 
@@ -1023,7 +1095,7 @@ public class HttpRequest extends DefaultStep {
             tree.endDocument();
 
             XdmNode doc = tree.getResult();
-            result.write(stepContext, doc);
+            result.write(stepContext,doc);
         } catch (FileNotFoundException fnfe) {
             throw new XProcException(fnfe);
         } catch (SaxonApiException sae) {

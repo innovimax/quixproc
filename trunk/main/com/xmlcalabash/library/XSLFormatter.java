@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,40 +21,37 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.library;
 
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.runtime.XAtomicStep;
-import com.xmlcalabash.util.S9apiUtils;
-import com.xmlcalabash.util.TreeWriter;
-import com.xmlcalabash.model.RuntimeValue;
-
-import org.apache.fop.apps.*;
-//import com.renderx.xep.FormatterImpl;
-//import com.renderx.xep.FOTarget;
-
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.sax.SAXResult;
-import javax.xml.transform.sax.SAXSource;
-import java.util.Properties;
-import java.io.OutputStream;
-import java.io.FileOutputStream;
 import java.io.BufferedOutputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.Properties;
+import java.util.Vector;
 
-import com.xmlcalabash.util.URIUtils;
-import org.xml.sax.InputSource;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 
+import com.xmlcalabash.config.FoProcessor;
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.model.RuntimeValue;
+import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.TreeWriter;
+import com.xmlcalabash.util.URIUtils;
+
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 21, 2008
+ * Time: 6:59:07 PM
+ * To change this template use File | Settings | File Templates.
+ */
 public class XSLFormatter extends DefaultStep {
     private static final QName _href = new QName("","href");
     private static final QName _content_type = new QName("","content-type");
-
-    private FopFactory fopFactory = FopFactory.newInstance();
-
     private ReadablePipe source = null;
     private WritablePipe result = null;
     private Properties options = new Properties();
@@ -86,73 +83,60 @@ public class XSLFormatter extends DefaultStep {
     public void gorun() throws SaxonApiException {
         super.gorun();
 
-        String contentType = getOption(_content_type).getString();
+        Vector<String> foClasses = new Vector<String> ();
+        if (runtime.getConfiguration().foProcessor != null) {
+            foClasses.add(runtime.getConfiguration().foProcessor);
+        }
+        foClasses.add("com.xmlcalabash.util.FoFOP");
+
+        FoProcessor provider = null;
+        Throwable pexcept = null;
+        for (String className : foClasses) {
+            if (provider == null) {
+                try {
+                    provider = (FoProcessor) Class.forName(className).newInstance();
+                    provider.initialize(runtime,step,options);
+                } catch (NoClassDefFoundError ncdfe) {
+                    pexcept = ncdfe;
+                    provider = null;
+                } catch (Exception e) {
+                    pexcept = e;
+                    provider = null;
+                }
+            }
+        }
+
+        if (provider == null) {
+            throw new XProcException(step.getNode(), "Failed to instantiate FO provider", pexcept);
+        }
+
+        String contentType = null;
+        if (getOption(_content_type) != null) {
+            contentType = getOption(_content_type).getString();
+        }
+
         String href = getOption(_href).getBaseURI().resolve(getOption(_href).getString()).toASCIIString();
         String output = null;
-
         if (href.startsWith("file:/")) {
             output = URIUtils.getFile(href).getPath();
         } else {
             throw new XProcException(step.getNode(), "Don't know how to write p:xsl-formatter output to " + href);
         }
 
-        String outputFormat = null;
-        
-        if (contentType == null || "application/pdf".equalsIgnoreCase(contentType)) {
-            outputFormat = MimeConstants.MIME_PDF; // "PDF";
-        } else if ("application/PostScript".equalsIgnoreCase(contentType)) {
-            outputFormat = MimeConstants.MIME_POSTSCRIPT; //"PostScript";
-        } else if ("application/afp".equalsIgnoreCase(contentType)) {
-            outputFormat =  MimeConstants.MIME_AFP;  //"AFP";
-        } else if ("application/rtf".equalsIgnoreCase(contentType)) {
-            outputFormat = MimeConstants.MIME_RTF;
-        } else if ("text/plain".equalsIgnoreCase(contentType)) {
-           outputFormat = MimeConstants.MIME_PLAIN_TEXT;            
-        } else {
-            throw new XProcException(step.getNode(), "Unsupported content-type on p:xsl-formatter: " + contentType);
-        }
-
- //       FormatterImpl xep = null;
- //       try {
- //           xep = new FormatterImpl(options);
- //       }
- //        catch (Exception e) {
- //            throw new XProcException(e);
- //       }
-
+        OutputStream out = null;
         try {
-            InputSource doc = S9apiUtils.xdmToInputSource(runtime, source.read(stepContext));
-            SAXSource saxdoc = new SAXSource(doc);
-
-            OutputStream out = null;
-            out = new BufferedOutputStream(new FileOutputStream(output));
-
             try {
-                try {
-//                xep.render(saxdoc, new FOTarget(out, outputFormat));
-           
-                
-                      // No URI Resolver : fopFactory.setURIResolver(uriResolver);
-                      Fop fop = fopFactory.newFop(outputFormat, out);
-                      FOUserAgent userAgent = fop.getUserAgent();
-                      userAgent.setBaseURL(step.getNode().getBaseURI().toString());
-                      TransformerFactory transformerFactory = TransformerFactory.newInstance();
-                      Transformer transformer = transformerFactory.newTransformer();
-                      transformer.transform(saxdoc, new SAXResult(fop.getDefaultHandler()));
-                } catch (Exception e) {
-                    throw new XProcException(e);
-                }
-                finally {
-                    out.close();
-                }
+                out = new BufferedOutputStream(new FileOutputStream(output));
+                provider.format(source.read(stepContext),out,contentType);
+            } catch (XProcException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new XProcException(step.getNode(), "Failed to process FO document", e);
+            } finally {
+                out.close();
             }
-            catch (Exception e) {
-                throw new XProcException(e);
-            }
-        } catch (Exception e) {
-            throw new XProcException(e);
-        } finally {
-           // xep.cleanup();
+        } catch (IOException e) {
+            // Oh, nevermind if we couldn't close the file
         }
 
         TreeWriter tree = new TreeWriter(runtime);
@@ -162,6 +146,6 @@ public class XSLFormatter extends DefaultStep {
         tree.addText(href);
         tree.addEndElement();
         tree.endDocument();
-        result.write(stepContext, tree.getResult());
+        result.write(stepContext,tree.getResult());
     }
 }

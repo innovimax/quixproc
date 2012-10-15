@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -19,8 +19,28 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
+
 package com.xmlcalabash.core;
 
+import innovimax.quixproc.codex.util.PipedDocument;
+import innovimax.quixproc.codex.util.StepContext;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.InputStream;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.HashSet;
+import java.util.Hashtable;
+import java.util.Vector;
+
+import javax.xml.transform.Source;
+import javax.xml.transform.sax.SAXSource;
+
+import net.sf.saxon.Configuration;
 import net.sf.saxon.s9api.Axis;
 import net.sf.saxon.s9api.DocumentBuilder;
 import net.sf.saxon.s9api.Processor;
@@ -30,36 +50,29 @@ import net.sf.saxon.s9api.XdmDestination;
 import net.sf.saxon.s9api.XdmNode;
 import net.sf.saxon.s9api.XdmNodeKind;
 import net.sf.saxon.s9api.XdmValue;
-import net.sf.saxon.tree.iter.NamespaceIterator;
 import net.sf.saxon.value.Whitespace;
-import net.sf.saxon.om.NodeInfo;
-import net.sf.saxon.om.NamePool;
-
-import java.util.Hashtable;
-import java.util.Vector;
-import java.util.HashSet;
-import java.util.logging.Level;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.io.InputStream;
-import java.io.File;
-
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.DocumentSequence;
-import com.xmlcalabash.util.URIUtils;
-import com.xmlcalabash.util.S9apiUtils;
-import com.xmlcalabash.util.RelevantNodes;
-import com.xmlcalabash.util.LogOptions;
-import com.xmlcalabash.model.Step;
-
-import javax.xml.transform.sax.SAXSource;
-import javax.xml.transform.Source;
 
 import org.xml.sax.InputSource;
 
-import innovimax.quixproc.codex.util.PipedDocument;
-import innovimax.quixproc.codex.util.StepContext;
+import com.xmlcalabash.io.DocumentSequence;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.model.Step;
+import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.JSONtoXML;
+import com.xmlcalabash.util.LogOptions;
+import com.xmlcalabash.util.RelevantNodes;
+import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.URIUtils;
+// Innovimax: new import  
+// Innovimax: new import  
 
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Nov 11, 2008
+ * Time: 7:47:38 PM
+ * To change this template use File | Settings | File Templates.
+ */
 public class XProcConfiguration {
     public static final QName _prefix = new QName("", "prefix");
     public static final QName _uri = new QName("", "uri");
@@ -67,16 +80,19 @@ public class XProcConfiguration {
     public static final QName _type = new QName("", "type");
     public static final QName _port = new QName("", "port");
     public static final QName _href = new QName("", "href");
-    public static final QName _level = new QName("", "level");
+    public static final QName _data = new QName("", "data");
     public static final QName _name = new QName("", "name");
+    public static final QName _key = new QName("", "key");
     public static final QName _value = new QName("", "value");
+    public static final QName _loader = new QName("", "loader");
     public static final QName _exclude_inline_prefixes = new QName("", "exclude-inline-prefixes");
 
+    public String saxonProcessor = "he";
     public boolean schemaAware = false;
+    public String saxonConfigFile = null;
     public Hashtable<String,String> nsBindings = new Hashtable<String,String> ();
     public boolean debug = false;
     public Hashtable<String,Vector<ReadablePipe>> inputs = new Hashtable<String,Vector<ReadablePipe>> ();
-    public Hashtable<String,Level> logLevel = new Hashtable<String,Level> ();
     public ReadablePipe pipeline = null;
     public Hashtable<String,String> outputs = new Hashtable<String,String> ();
     public Hashtable<String,Hashtable<QName,String>> params = new Hashtable<String,Hashtable<QName,String>> ();
@@ -89,38 +105,42 @@ public class XProcConfiguration {
     public Hashtable<QName,String> implementations = new Hashtable<QName,String> ();
     public Hashtable<String,String> serializationOptions = new Hashtable<String,String>();
     public LogOptions logOpt = LogOptions.WRAPPED;
+    public Vector<String> extensionFunctions = new Vector<String>();
+    public String foProcessor = null;
+    public String cssProcessor = null;
+    public String xprocConfigurer = null;
+    public String htmlParser = "validator.nu";
+    public String mailHost = null;
+    public String mailPort = "25";
+    public String mailUser = null;
+    public String mailPass = null;
+    public Hashtable<String,String> loaders = new Hashtable<String,String> ();
 
     public boolean extensionValues = false;
-    
+    public boolean xpointerOnText = false;
+    public boolean transparentJSON = false;
+    public String jsonFlavor = JSONtoXML.MARKLOGIC;
+    public boolean useXslt10 = false;
+
     private Processor cfgProcessor = null;
     private boolean firstInput = false;
     private boolean firstOutput = false;
 
     public XProcConfiguration() {
-        cfgProcessor = new Processor(false);
-        loadConfiguration();
-
-        if (schemaAware) {
-            // Bugger. We have to restart with a schema-aware processor
-            nsBindings.clear();
-            inputs.clear();
-            outputs.clear();
-            params.clear();
-            options.clear();
-            implementations.clear();
-
-            cfgProcessor = new Processor(true);
-            loadConfiguration();
-        }
+        init("he", false, null);
     }
 
+    // This constructor is historical, the (String, boolean) constructor is preferred
     public XProcConfiguration(boolean schemaAware) {
-        cfgProcessor = new Processor(schemaAware);
-        boolean sa = cfgProcessor.isSchemaAware();
-        if (schemaAware && !sa) {
-            System.err.println("Failed to obtain schema-aware processor.");
-        }
-        loadConfiguration();
+        init("he", schemaAware, null);
+    }
+
+    public XProcConfiguration(String saxoncfg) {
+        init(null, false, saxoncfg);
+    }
+
+    public XProcConfiguration(String proctype, boolean schemaAware) {
+        init(proctype, schemaAware, null);
     }
 
     public XProcConfiguration(Processor processor) {
@@ -135,6 +155,63 @@ public class XProcConfiguration {
         return cfgProcessor;
     }
 
+    private void init(String proctype, boolean schemaAware, String saxoncfg) {
+        if (schemaAware) {
+            proctype = "ee";
+        }
+
+        createSaxonProcessor(proctype, schemaAware, saxoncfg);
+        loadConfiguration();
+
+        // If we got a schema aware processor, make sure it's reflected in our config
+        // FIXME: are there other things that should be reflected this way?
+        this.schemaAware = cfgProcessor.isSchemaAware();
+        this.saxonProcessor = Configuration.softwareEdition.toLowerCase();
+
+        if (!(proctype == null || saxonProcessor.equals(proctype)) || schemaAware != this.schemaAware ||
+            (saxoncfg == null && saxonConfigFile != null)) {
+            // Drat. We have to restart to get the right configuration.
+            nsBindings.clear();
+            inputs.clear();
+            outputs.clear();
+            params.clear();
+            options.clear();
+            implementations.clear();
+            extensionFunctions.clear();
+            
+            createSaxonProcessor(saxonProcessor, this.schemaAware, saxonConfigFile);
+            loadConfiguration();
+
+            // If we got a schema aware processor, make sure it's reflected in our config
+            // FIXME: are there other things that should be reflected this way?
+            this.schemaAware = cfgProcessor.isSchemaAware();
+            this.saxonProcessor = Configuration.softwareEdition.toLowerCase();
+        }
+    }
+
+    private void createSaxonProcessor(String proctype, boolean schemaAware, String saxoncfg) {
+        boolean licensed = schemaAware || !"he".equals(proctype);
+
+        if (saxoncfg != null) {
+            try {
+                InputStream instream = new FileInputStream(saxoncfg);
+                SAXSource source = new SAXSource(new InputSource(instream));
+                cfgProcessor = new Processor(source);
+            } catch (FileNotFoundException e) {
+                throw new XProcException(e);
+            } catch (SaxonApiException e) {
+                throw new XProcException(e);
+            }
+        } else {
+            cfgProcessor = new Processor(licensed);
+        }
+
+        String actualtype = Configuration.softwareEdition;
+        if ((proctype != null) && !"he".equals(proctype) && (!actualtype.toLowerCase().equals(proctype))) {
+            System.err.println("Failed to obtain " + proctype.toUpperCase() + " processor; using " + actualtype + " instead.");
+        }
+    }
+    
     private void loadConfiguration() {
         URI home = URIUtils.homeAsURI();
         URI cwd = URIUtils.cwdAsURI();
@@ -148,6 +225,7 @@ public class XProcConfiguration {
             if (instream == null) {
                 throw new UnsupportedOperationException("Failed to load configuration from JAR file");
             }
+            // No resolver, we don't have one yet
             SAXSource source = new SAXSource(new InputSource(instream));
             DocumentBuilder builder = cfgProcessor.newDocumentBuilder();
             builder.setLineNumbering(true);
@@ -178,6 +256,60 @@ public class XProcConfiguration {
                 throw xe;
             }
         }
+
+        // What about properties?
+        saxonProcessor = System.getProperty("com.xmlcalabash.saxon-processor", saxonProcessor);
+
+        if ( !("he".equals(saxonProcessor) || "pe".equals(saxonProcessor) || "ee".equals(saxonProcessor)) ) {
+            throw new XProcException("Invalid Saxon processor specified in com.xmlcalabash.saxon-processor property.");
+        }
+
+        saxonConfigFile = System.getProperty("com.xmlcalabash.saxon-configuration", saxonConfigFile);
+
+        schemaAware = "true".equals(System.getProperty("com.xmlcalabash.schema-aware", ""+schemaAware));
+        debug = "true".equals(System.getProperty("com.xmlcalabash.debug", ""+debug));
+        extensionValues = "true".equals(System.getProperty("com.xmlcalabash.general-values", ""+extensionValues));
+        xpointerOnText = "true".equals(System.getProperty("com.xmlcalabash.xpointer-on-text", ""+xpointerOnText));
+        transparentJSON = "true".equals(System.getProperty("com.xmlcalabash.transparent-json", ""+transparentJSON));
+        jsonFlavor = System.getProperty("com.xmlcalabash.json-flavor", jsonFlavor);
+        useXslt10 = "true".equals(System.getProperty("com.xmlcalabash.use-xslt-10", ""+useXslt10));
+        entityResolver = System.getProperty("com.xmlcalabash.entity-resolver", entityResolver);
+        uriResolver = System.getProperty("com.xmlcalabash.uri-resolver", uriResolver);
+        errorListener = System.getProperty("com.xmlcalabash.error-listener", errorListener);
+        foProcessor = System.getProperty("com.xmlcalabash.fo-processor", foProcessor);
+        cssProcessor = System.getProperty("com.xmlcalabash.css-processor", cssProcessor);
+        xprocConfigurer = System.getProperty("com.xmlcalabash.xproc-configurer", xprocConfigurer);
+        htmlParser = System.getProperty("com.xmlcalabash.html-parser", htmlParser);
+        mailHost = System.getProperty("com.xmlcalabash.mail-host", mailHost);
+        mailPort = System.getProperty("com.xmlcalabash.mail-port", mailPort);
+        mailUser = System.getProperty("com.xmlcalabash.mail-username", mailUser);
+        mailPass = System.getProperty("com.xmlcalabash.mail-password", mailPass);
+
+        String[] boolSerNames = new String[] {"byte-order-mark", "escape-uri-attributes",
+                "include-content-type","indent", "omit-xml-declaration", "undeclare-prefixes"};
+        String[] strSerNames = new String[] {"doctype-public", "doctype-system", "encoding",
+                "media-type", "normalization-form", "version", "standalone"};
+
+        for (String name : boolSerNames) {
+            String s = System.getProperty("com.xmlcalabash.serial."+name);
+            if ("true".equals(s) || "false".equals(s)) {
+                serializationOptions.put(name, s);
+            }
+        }
+
+        for (String name : strSerNames) {
+            String s = System.getProperty("com.xmlcalabash.serial."+name);
+            if (s != null) {
+                serializationOptions.put(name, s);
+            }
+        }
+
+        // cdata-section-elements is ignored
+
+        String method = System.getProperty("com.xmlcalabash.serial.method");
+        if ("html".equals(method) || "xhtml".equals(method) || "text".equals(method) || "xml".equals(method)) {
+            serializationOptions.put(method, method);
+        }
     }
 
     public XdmNode readXML(String href, String base) {
@@ -191,6 +323,7 @@ public class XProcConfiguration {
             throw new XProcException(use);
         }
 
+        // No resolver, we don't have one yet
         DocumentBuilder builder = cfgProcessor.newDocumentBuilder();
         builder.setLineNumbering(true);
 
@@ -215,6 +348,10 @@ public class XProcConfiguration {
                     || XProcConstants.NS_EXPROC_CONFIG.equals(uri)) {
                 if ("implementation".equals(localName)) {
                     parseImplementation(node);
+                } else if ("saxon-processor".equals(localName)) {
+                    parseSaxonProcessor(node);
+                } else if ("saxon-configuration".equals(localName)) {
+                    parseSaxonConfiguration(node);
                 } else if ("schema-aware".equals(localName)) {
                     parseSchemaAware(node);
                 } else if ("namespace-binding".equals(localName)) {
@@ -243,6 +380,26 @@ public class XProcConfiguration {
                     parsePipeline(node);
                 } else if ("serialization".equals(localName)) {
                     parseSerialization(node);
+                } else if ("extension-function".equals(localName)) {
+                    parseExtensionFunction(node);
+                } else if ("fo-processor".equals(localName)) {
+                    parseFoProcessor(node);
+                } else if ("css-processor".equals(localName)) {
+                    parseCssProcessor(node);
+                } else if ("xproc-configurer".equals(localName)) {
+                    parseXProcConfigurer(node);
+                } else if ("default-system-property".equals(localName)) {
+                    parseSystemProperty(node);
+                } else if ("extension".equals(localName)) {
+                    parseExtension(node);
+                } else if ("html-parser".equals(localName)) {
+                    parseHtmlParser(node);
+                } else if ("sendmail".equals(localName)) {
+                    parseSendMail(node);
+                } else if ("saxon-configuration-property".equals(localName)) {
+                    saxonConfigurationProperty(node);
+                } else if ("pipeline-loader".equals(localName)) {
+                    pipelineLoader(node);
                 } else {
                     throw new XProcException(doc, "Unexpected configuration option: " + localName);
                 }
@@ -253,12 +410,68 @@ public class XProcConfiguration {
         firstOutput = true;
     }
 
-    public String implementationClass(QName type) {
-        if (implementations.containsKey(type)) {
-            return implementations.get(type);
-        } else {
-            return null;
+
+	public boolean isStepAvailable(QName type) {
+		return implementations.containsKey(type);
+	}
+	
+	// Innovimax: modified function
+	public XProcStep newStep(XProcRuntime runtime,XAtomicStep step){
+        String className = implementations.get(step.getType());
+        if (className == null) {
+            throw new UnsupportedOperationException("Misconfigured. No 'class' in configuration for " + step.getType());
         }
+
+        // FIXME: This isn't really very secure...
+        if (runtime.getSafeMode() && !className.startsWith("com.xmlcalabash.")) {
+            throw XProcException.dynamicError(21);
+        }
+        
+        // Innovimax: search form stream class
+        String className2 = null;
+        if (step.isStreamed()) {            
+            QName type = new QName("ix", XProcConstants.NS_INNOVIMAX_EX, step.getType().getLocalName());            
+            className2 = implementations.get(type);            
+            if (className2 == null && step.isStreamAll()) {
+                throw new UnsupportedOperationException("Misconfigured. No 'class' in configuration for " + type);
+            }       
+            if (className2 != null) {
+                className = className2;
+            } else {                
+                step.setStreamed(false);
+                step.setStreamAll(false);
+            }                    
+        }                  
+        
+    		try {
+    			Constructor constructor = Class.forName(className).getConstructor(XProcRuntime.class, XAtomicStep.class);
+    			return (XProcStep) constructor.newInstance(runtime,step);
+    		} catch (NoSuchMethodException nsme) {
+    			throw new UnsupportedOperationException("No such method: " + className, nsme);
+    		} catch (ClassNotFoundException cfne) {
+    			throw new UnsupportedOperationException("Class not found: " + className, cfne);
+    		} catch (InstantiationException ie) {
+    			throw new UnsupportedOperationException("Instantiation error", ie);
+    		} catch (IllegalAccessException iae) {
+    			throw new UnsupportedOperationException("Illegal access error", iae);
+    		} catch (InvocationTargetException ite) {
+    			throw new UnsupportedOperationException("Invocation target exception", ite);
+        }
+    }
+
+    private void parseSaxonProcessor(XdmNode node) {
+        String value = node.getStringValue().trim();
+
+        if ( !("he".equals(value) || "pe".equals(value) || "ee".equals(value)) ) {
+            throw new XProcException(node, "Invalid Saxon processor: " + value + ". Must be 'he', 'pe', or 'ee'.");
+        }
+
+        saxonProcessor = value;
+    }
+
+    private void parseSaxonConfiguration(XdmNode node) {
+        String value = node.getStringValue().trim();
+        saxonConfigFile = value;
     }
 
     private void parseSchemaAware(XdmNode node) {
@@ -288,6 +501,134 @@ public class XProcConfiguration {
     private void parseEntityResolver(XdmNode node) {
         String value = node.getAttributeValue(_class_name);
         entityResolver = value;
+    }
+
+    private void parseExtensionFunction(XdmNode node) {
+        String value = node.getAttributeValue(_class_name);
+        extensionFunctions.add(value);
+    }
+
+    private void parseFoProcessor(XdmNode node) {
+        String value = node.getAttributeValue(_class_name);
+        foProcessor = value;
+    }
+
+    private void parseCssProcessor(XdmNode node) {
+        String value = node.getAttributeValue(_class_name);
+        cssProcessor = value;
+    }
+
+    private void parseXProcConfigurer(XdmNode node) {
+        String value = node.getAttributeValue(_class_name);
+        xprocConfigurer = value;
+    }
+
+    private void parseSystemProperty(XdmNode node) {
+        String name = node.getAttributeValue(_name);
+        String value = node.getAttributeValue(_value);
+        if (name == null || value == null) {
+            throw new XProcException("Configuration option 'default-system-property' cannot have null name or value");
+        }
+        if (System.getProperty(name) == null) {
+            System.setProperty(name, value);
+        }
+    }
+
+    private void parseExtension(XdmNode node) {
+        String name = node.getAttributeValue(_name);
+        String value = node.getAttributeValue(_value);
+        if (name == null || value == null) {
+            throw new XProcException("Configuration option 'extension' cannot have null name or value");
+        }
+
+        if ("general-values".equals(name)) {
+            extensionValues = "true".equals(value);
+        } else if ("xpointer-on-text".equals(name)) {
+            xpointerOnText = "true".equals(value);
+        } else if ("transparent-json".equals(name)) {
+            transparentJSON = "true".equals(value);
+        } else if ("json-flavor".equals(name)) {
+            jsonFlavor = value;
+            if (! JSONtoXML.knownFlavor(jsonFlavor)) {
+                throw new XProcException("Unrecognized JSON flavor: " + jsonFlavor);
+            }
+        } else if ("use-xslt-1.0".equals(name) || "use-xslt-10".equals(name)) {
+            useXslt10 = "true".equals(value);
+        } else {
+            throw new XProcException("Unrecognized extension in configuration: " + name);
+        }
+    }
+
+    private void parseHtmlParser(XdmNode node) {
+        String value = node.getAttributeValue(_value);
+        if (value == null) {
+            throw new XProcException("Configuration option 'html-parser' cannot have null value");
+        }
+
+        if ("validator.nu".equals(value) || "tagsoup".equals(value)) {
+            htmlParser = value;
+        } else {
+            throw new XProcException("Unrecognized value in html-parser: " + value);
+        }
+    }
+
+    private void parseSendMail(XdmNode node) {
+        String host = node.getAttributeValue(new QName("", "host"));
+        String port = node.getAttributeValue(_port);
+        String user = node.getAttributeValue(new QName("", "username"));
+        String pass = node.getAttributeValue(new QName("", "password"));
+
+        if (host != null) { mailHost = host; }
+        if (port != null) { mailPort = port; }
+        if (user != null) {
+            mailUser = user;
+            if (pass == null) {
+                throw new XProcException("Misconfigured sendmail: user specified without password");
+            }
+            mailPass = pass;
+        }
+    }
+
+    private void saxonConfigurationProperty(XdmNode node) {
+        String value = node.getAttributeValue(_value);
+        String key = node.getAttributeValue(_key);
+        String type = node.getAttributeValue(_type);
+        Object valueObj = null;
+        if (key == null || value == null) {
+            throw new XProcException("Configuration option 'saxon-configuration-property' cannot have a null key or value");
+        }
+
+        if ("boolean".equals(type)) {
+            valueObj = "true".equals(value);
+        } else if ("integer".equals(type)) {
+            valueObj = Integer.parseInt(value);
+        } else {
+            valueObj = value;
+        }
+
+        try {
+            cfgProcessor.setConfigurationProperty(key, valueObj);
+        } catch (Exception e) {
+            throw new XProcException(e);
+        }
+    }
+
+    private void pipelineLoader(XdmNode node) {
+        String data = node.getAttributeValue(_data);
+        String href = node.getAttributeValue(_href);
+        String loader = node.getAttributeValue(_loader);
+        if ((data == null && href == null) || (data != null && href != null)) {
+            throw new XProcException("Configuration option 'pipeline-loader' must have one of 'href' or 'data'");
+        }
+        if (loader == null) {
+            throw new XProcException("Configuration option 'pipeline-loader' must specify a 'loader'");
+        }
+
+        if (data == null) {
+            loaders.put("href:" + href, loader);
+        } else {
+            loaders.put("data:" + data, loader);
+        }
     }
 
     private void parseInput(XdmNode node) {
@@ -324,42 +665,9 @@ public class XProcConfiguration {
 
             documents.add(new ConfigDocument(href, node.getBaseURI().toASCIIString()));
         } else {
-            HashSet<String> excludeURIs = readExcludeInlinePrefixes(node, node.getAttributeValue(_exclude_inline_prefixes));
-            documents.add(new ConfigDocument(docnodes, excludeURIs));
+          HashSet<String> excludeURIs = S9apiUtils.excludeInlinePrefixes(node, node.getAttributeValue(_exclude_inline_prefixes));
+          documents.add(new ConfigDocument(docnodes, excludeURIs));
         }
-    }
-
-    private HashSet<String> readExcludeInlinePrefixes(XdmNode node, String prefixList) {
-        HashSet<String> excludeURIs = new HashSet<String> ();
-        excludeURIs.add(XProcConstants.NS_XPROC);
-
-        if (prefixList != null) {
-            // FIXME: Surely there's a better way to do this?
-            NodeInfo inode = node.getUnderlyingNode();
-            NamePool pool = inode.getNamePool();
-            int inscopeNS[] = NamespaceIterator.getInScopeNamespaceCodes(inode);
-
-            for (String pfx : prefixList.split("\\s+")) {
-                boolean found = false;
-
-                for (int pos = 0; pos < inscopeNS.length; pos++) {
-                    int ns = inscopeNS[pos];
-                    String nspfx = pool.getPrefixFromNamespaceCode(ns);
-                    String nsuri = pool.getURIFromNamespaceCode(ns);
-
-                    if (pfx.equals(nspfx)) {
-                        found = true;
-                        excludeURIs.add(nsuri);
-                    }
-                }
-
-                if (!found) {
-                    throw new XProcException(XProcConstants.staticError(57), "No binding for '" + pfx + ":'");
-                }
-            }
-        }
-
-        return excludeURIs;
     }
 
     private void parsePipeline(XdmNode node) {
@@ -383,8 +691,8 @@ public class XProcConfiguration {
             }
             pipeline = new ConfigDocument(href, node.getBaseURI().toASCIIString());
         } else {
-            HashSet<String> excludeURIs = readExcludeInlinePrefixes(node, node.getAttributeValue(_exclude_inline_prefixes));
-            pipeline = new ConfigDocument(docnodes, excludeURIs);
+          HashSet<String> excludeURIs = S9apiUtils.excludeInlinePrefixes(node, node.getAttributeValue(_exclude_inline_prefixes));
+          pipeline = new ConfigDocument(docnodes, excludeURIs);
         }
     }
 
@@ -483,9 +791,10 @@ public class XProcConfiguration {
             throw new XProcException(node, "Unexpected implementation in configuration; must have both type and class-name attributes");
         }
 
-        QName name = new QName(nameStr,node);
-
-        implementations.put(name, value);
+        for (String tname : nameStr.split("\\s+")) {
+            QName name = new QName(tname,node);
+            implementations.put(name, value);
+        }
     }
 
     private void parseSerialization(XdmNode node) {
@@ -589,6 +898,10 @@ public class XProcConfiguration {
             // nop; always false
         }
 
+        public boolean readSequence() {
+            return false;
+        }
+
         public XdmNode read() throws SaxonApiException {
             read = true;
 
@@ -610,7 +923,7 @@ public class XProcConfiguration {
                     S9apiUtils.writeXdmValue(cfgProcessor, nodes, dest, node.getBaseURI());
                     doc = dest.getXdmNode();
                     if (excludeUris.size() != 0) {
-                        doc = S9apiUtils.removeNamespaces(cfgProcessor, doc, excludeUris);
+                        doc = S9apiUtils.removeNamespaces(cfgProcessor, doc, excludeUris, true);
                     }
                 } catch (SaxonApiException sae) {
                     throw new XProcException(sae);
@@ -644,8 +957,8 @@ public class XProcConfiguration {
 
         public DocumentSequence documents() {
             throw new XProcException("You can't get the document sequence of an input from the config file!");
-        }
-
+        }             
+        
         //*************************************************************************
         //*************************************************************************        
         //*************************************************************************
@@ -697,6 +1010,17 @@ public class XProcConfiguration {
         // Innovimax: new function
         public int documentCount(StepContext stepContext) {
             return 0;
-        }          
+        }  
+        
+        // Innovimax: new function
+        public DocumentSequence documents(StepContext stepContext) {
+            throw new XProcException("You can't get the document sequence of an input from the config file!");
+        }                            
+        
+        // Innovimax: new function
+        public String sequenceInfos() {        
+            return "";
+        }           
     }
+
 }

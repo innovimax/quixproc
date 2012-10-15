@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,15 +22,20 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.util;
 
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcException;
+import java.net.URI;
+import java.util.Iterator;
+
 import net.sf.saxon.Controller;
 import net.sf.saxon.event.NamespaceReducer;
-import net.sf.saxon.event.Receiver;
 import net.sf.saxon.event.PipelineConfiguration;
+import net.sf.saxon.event.Receiver;
 import net.sf.saxon.expr.instruct.Executable;
-import net.sf.saxon.om.NodeInfo;
+import net.sf.saxon.om.FingerprintedQName;
+import net.sf.saxon.om.NameOfNode;
 import net.sf.saxon.om.NamePool;
+import net.sf.saxon.om.NamespaceBinding;
+import net.sf.saxon.om.NodeInfo;
+import net.sf.saxon.om.NodeName;
 import net.sf.saxon.om.StandardNames;
 import net.sf.saxon.s9api.Axis;
 import net.sf.saxon.s9api.Processor;
@@ -40,10 +45,18 @@ import net.sf.saxon.s9api.XdmNode;
 import net.sf.saxon.s9api.XdmNodeKind;
 import net.sf.saxon.s9api.XdmSequenceIterator;
 import net.sf.saxon.trans.XPathException;
-import net.sf.saxon.tree.iter.NamespaceIterator;
+import net.sf.saxon.tree.util.NamespaceIterator;
+import net.sf.saxon.type.BuiltInType;
+import net.sf.saxon.type.SchemaType;
+import net.sf.saxon.type.SimpleType;
 
-import java.net.URI;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
 
+/**
+ *
+ * @author ndw
+ */
 public class TreeWriter {
     protected static final String logger = "com.xmlcalabash.util";
     protected Controller controller = null;
@@ -153,33 +166,53 @@ public class TreeWriter {
 
     public void addStartElement(XdmNode node) {
         NodeInfo inode = node.getUnderlyingNode();
-        int nameCode = inode.getNameCode();
-        int typeCode = inode.getTypeAnnotation() & NamePool.FP_MASK;
-
-        int inscopeNS[] = null;
+     
+        NamespaceBinding inscopeNS[] = null;
         if (seenRoot) {
             inscopeNS = inode.getDeclaredNamespaces(null);
-        } else {
-            inscopeNS = NamespaceIterator.getInScopeNamespaceCodes(inode);
+            int count = 0;
+                    Iterator<NamespaceBinding> nsiter = NamespaceIterator.iterateNamespaces(inode);
+                    while (nsiter.hasNext()) {
+                        count++;
+                        nsiter.next();
+                    }
+                    inscopeNS = new NamespaceBinding[count];
+                    nsiter = NamespaceIterator.iterateNamespaces(inode);
+                    count = 0;
+                    while (nsiter.hasNext()) {
+                        inscopeNS[count] = nsiter.next();
+                        count++;
+                    }
+                   } else {
             seenRoot = true;
         }
 
         URI nodeBaseURI = node.getBaseURI();
         receiver.setSystemId(nodeBaseURI.toASCIIString());
-        addStartElement(nameCode, typeCode, inscopeNS);
-    }
+        addStartElement(new NameOfNode(inode), inode.getSchemaType(), inscopeNS);
+        }
 
     public void addStartElement(XdmNode node, QName newName) {
         NodeInfo inode = node.getUnderlyingNode();
-        int nameCode = pool.allocate(newName.getPrefix(), newName.getNamespaceURI(), newName.getLocalName());
-        int typeCode = inode.getTypeAnnotation() & NamePool.FP_MASK;
-
-        int inscopeNS[] = null;
+ 
+        NamespaceBinding inscopeNS[] = null;
         if (seenRoot) {
             inscopeNS = inode.getDeclaredNamespaces(null);
         } else {
-            inscopeNS = NamespaceIterator.getInScopeNamespaceCodes(inode);
-            seenRoot = true;
+          int count = 0;
+                  Iterator<NamespaceBinding> nsiter = NamespaceIterator.iterateNamespaces(inode);
+                  while (nsiter.hasNext()) {
+                      count++;
+                      nsiter.next();
+                  }
+                  inscopeNS = new NamespaceBinding[count];
+                  nsiter = NamespaceIterator.iterateNamespaces(inode);
+                  count = 0;
+                  while (nsiter.hasNext()) {
+                      inscopeNS[count] = nsiter.next();
+                      count++;
+                  }
+                   seenRoot = true;
         }
 
         // If the newName has no prefix, then make sure we don't pass along some other
@@ -187,21 +220,18 @@ public class TreeWriter {
         if ("".equals(newName.getPrefix())) {
             int newLen = 0;
             for (int pos = 0; pos < inscopeNS.length; pos++) {
-                int nscode = inscopeNS[pos];
-                String pfx = pool.getPrefixFromNamespaceCode(nscode);
-                if (!"".equals(pfx)) {
-                    newLen++;
+              NamespaceBinding nscode = inscopeNS[pos];
+                          if (!"".equals(nscode.getPrefix())) {
+                               newLen++;
                 }
-                //System.err.println("NSCode=" + nscode + " pfx=" + pool.getPrefixFromNamespaceCode(nscode) + " uri=" + pool.getURIFromNamespaceCode(nscode));
             }
             if (newLen != inscopeNS.length) {
-                int newCodes[] = new int[newLen];
-                int npos = 0;
+              NamespaceBinding newCodes[] = new NamespaceBinding[newLen];
+                               int npos = 0;
                 for (int pos = 0; pos < inscopeNS.length; pos++) {
-                    int nscode = inscopeNS[pos];
-                    String pfx = pool.getPrefixFromNamespaceCode(nscode);
-                    if (!"".equals(pfx)) {
-                        newCodes[npos++] = nscode;
+                  NamespaceBinding nscode = inscopeNS[pos];
+                                  if (!"".equals(nscode.getPrefix())) {
+                                    newCodes[npos++] = nscode;
                     }
                 }
                 inscopeNS = newCodes;
@@ -210,19 +240,18 @@ public class TreeWriter {
         
         URI nodeBaseURI = node.getBaseURI();
         receiver.setSystemId(nodeBaseURI.toASCIIString());
-        addStartElement(nameCode, typeCode, inscopeNS);
-    }
+        FingerprintedQName newNameOfNode = new FingerprintedQName(newName.getPrefix(),newName.getNamespaceURI(),newName.getLocalName());
+            addStartElement(newNameOfNode, inode.getSchemaType(), inscopeNS);
+          }
 
     public void addStartElement(QName newName) {
-        //System.err.println("newName: " + newName.getPrefix() + ", " + newName.getNamespaceURI() + ", " + newName.getLocalName()); 
-        int nameCode = pool.allocate(newName.getPrefix(), newName.getNamespaceURI(), newName.getLocalName());
-        int typeCode = StandardNames.XS_UNTYPED;
-        int inscopeNS[] = null;
-        addStartElement(nameCode, typeCode, inscopeNS);
-    }
+      NodeName elemName = new FingerprintedQName(newName.getPrefix(), newName.getNamespaceURI(), newName.getLocalName());
+          SchemaType typeCode = BuiltInType.getSchemaType(StandardNames.XS_UNTYPED);
+          NamespaceBinding inscopeNS[] = null;
+          addStartElement(elemName, typeCode, inscopeNS);
+      }
 
-    public void addStartElement(int nameCode, int typeCode, int nscodes[]) {
-        int locId;
+    public void addStartElement(NodeName elemName, SchemaType typeCode, NamespaceBinding nscodes[]) {     int locId;
         String sysId = receiver.getSystemId();
         if (sysId == null) {
             locId = 0;
@@ -231,9 +260,9 @@ public class TreeWriter {
         }
 
         try {
-            receiver.startElement(nameCode, typeCode, locId, 0);
-            if (nscodes != null) {
-                for (int ns : nscodes) {
+          receiver.startElement(elemName, typeCode, locId, 0);
+          if (nscodes != null) {
+            for (NamespaceBinding ns : nscodes) {
                     receiver.namespace(ns, 0);
                 }
             }
@@ -243,9 +272,9 @@ public class TreeWriter {
     }
 
     public void addNamespace(String prefix, String uri) {
-        int nscode = pool.allocateNamespaceCode(prefix, uri);
-        try {
-            receiver.namespace(nscode, 0);
+      NamespaceBinding nsbind = new NamespaceBinding(prefix, uri);
+      try {
+            receiver.namespace(nsbind, 0);
         } catch (XPathException e) {
             throw new XProcException(e);
         }
@@ -265,29 +294,29 @@ public class TreeWriter {
 
     public void addAttribute(XdmNode xdmattr, String newValue) {
         NodeInfo inode = xdmattr.getUnderlyingNode();
-        int nameCode = inode.getNameCode();
-        int typeCode = inode.getTypeAnnotation() & NamePool.FP_MASK;
-
+        NodeName attrName = new NameOfNode(inode);
+        SimpleType typeCode = (SimpleType) inode.getSchemaType();
+    
         try {
-            receiver.attribute(nameCode, typeCode, newValue, 0, 0);
+            receiver.attribute(attrName, typeCode, newValue, 0, 0);
         } catch (XPathException e) {
             throw new XProcException(e);
         }
     }
 
-    public void addAttribute(int nameCode, int typeCode, String newValue) {
-        try {
-            receiver.attribute(nameCode, typeCode, newValue, 0, 0);
+    public void addAttribute(NodeName elemName, SimpleType typeCode, String newValue) {    
+      try {
+            receiver.attribute(elemName, typeCode, newValue, 0, 0);
         } catch (XPathException e) {
             throw new XProcException(e);
         }
     }
 
     public void addAttribute(QName attrName, String newValue) {
-        int nameCode = pool.allocate(attrName.getPrefix(),attrName.getNamespaceURI(),attrName.getLocalName());
-        int typeCode = StandardNames.XS_UNTYPED_ATOMIC;
-        try {
-            receiver.attribute(nameCode, typeCode, newValue, 0, 0);
+      NodeName elemName = new FingerprintedQName(attrName.getPrefix(),attrName.getNamespaceURI(),attrName.getLocalName());
+          SimpleType typeCode = (SimpleType) BuiltInType.getSchemaType(StandardNames.XS_UNTYPED_ATOMIC);
+          try {
+            receiver.attribute(elemName, typeCode, newValue, 0, 0);
         } catch (XPathException e) {
             throw new XProcException(e);
         }

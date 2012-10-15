@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,12 +22,17 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.library;
 
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.core.XProcRuntime;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
+
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.runtime.XAtomicStep;
 
+/**
+ *
+ * @author ndw
+ */
 public class Sink extends DefaultStep {
     protected static final String logger = "org.xproc.library.sink";
     private ReadablePipe source = null;

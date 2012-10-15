@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,30 +22,33 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.library;
 
-import java.util.Map;
 import java.util.Iterator;
 
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.util.ProcessMatchingNodes;
-import com.xmlcalabash.util.ProcessMatch;
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.model.RuntimeValue;
+import net.sf.saxon.s9api.Axis;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.XdmSequenceIterator;
-import net.sf.saxon.s9api.Axis;
 import net.sf.saxon.s9api.XPathCompiler;
 import net.sf.saxon.s9api.XPathExecutable;
 import net.sf.saxon.s9api.XPathSelector;
-import net.sf.saxon.s9api.XdmItem;
 import net.sf.saxon.s9api.XdmAtomicValue;
+import net.sf.saxon.s9api.XdmItem;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.s9api.XdmSequenceIterator;
 
-import com.xmlcalabash.runtime.XAtomicStep;
 import com.xmlcalabash.core.XProcConstants;
 import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.model.RuntimeValue;
+import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.ProcessMatch;
+import com.xmlcalabash.util.ProcessMatchingNodes;
 
+/**
+ *
+ * @author ndw
+ */
 public class LabelElements extends DefaultStep implements ProcessMatchingNodes {
     private static final QName _attribute = new QName("attribute");
     private static final QName _attribute_prefix = new QName("attribute-prefix");
@@ -58,7 +61,7 @@ public class LabelElements extends DefaultStep implements ProcessMatchingNodes {
     private WritablePipe result = null;
     private ProcessMatch matcher = null;
     private QName attribute = null;
-    private String label = null;
+    private RuntimeValue label = null;
     private boolean replace = true;
     private int count = 1;
 
@@ -99,16 +102,21 @@ public class LabelElements extends DefaultStep implements ProcessMatchingNodes {
         if (attrNameStr.contains(":")) {
             attribute = new QName(attrNameStr, attrNameValue.getNode());
         } else {
+          // For Saxon 9.4, make sure there's some sort of prefix if there's a namespace;
+          // Saxon will take care of resolving collisions, if necessary
+            if (apfx == null && ans != null) {
+                apfx = "_1";
+            }
             attribute = new QName(apfx == null ? "" : apfx, ans, attrNameStr);
         }
 
-        label = getOption(_label).getString();
+        label = getOption(_label);
         replace = getOption(_replace).getBoolean();
 
         matcher = new ProcessMatch(runtime, this);
         matcher.match(source.read(stepContext), getOption(_match));
 
-        result.write(stepContext, matcher.getResult());
+        result.write(stepContext,matcher.getResult());
     }
 
     public boolean processStartDocument(XdmNode node) throws SaxonApiException {
@@ -167,10 +175,15 @@ public class LabelElements extends DefaultStep implements ProcessMatchingNodes {
 
     private String computedLabel(XdmNode node) throws SaxonApiException {
         XPathCompiler xcomp = runtime.getProcessor().newXPathCompiler();
-        xcomp.declareNamespace("p", XProcConstants.NS_XPROC);
+        xcomp.setBaseURI(step.getNode().getBaseURI());
+
+        // Make sure any namespace bindings in-scope for the label are available for the expression
+        for (String prefix : label.getNamespaceBindings().keySet()) {
+            xcomp.declareNamespace(prefix, label.getNamespaceBindings().get(prefix));
+        }
         xcomp.declareVariable(p_index);
 
-        XPathExecutable xexec = xcomp.compile(label);
+        XPathExecutable xexec = xcomp.compile(label.getString());
         XPathSelector selector = xexec.load();
 
         selector.setVariable(p_index,new XdmAtomicValue(count++));

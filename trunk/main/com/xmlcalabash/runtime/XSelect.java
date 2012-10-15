@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,31 +21,66 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.runtime;
 
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.DocumentSequence;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.util.S9apiUtils;
-import com.xmlcalabash.model.NamespaceBinding;
-import com.xmlcalabash.model.Step;
-import com.xmlcalabash.model.RuntimeValue;
-
-import java.util.Iterator;
-import java.util.Hashtable;
-import java.util.logging.Logger;
-
-import net.sf.saxon.s9api.*;
-import net.sf.saxon.sxpath.IndependentContext;
-
-import innovimax.quixproc.codex.util.Waiting;
-
 import innovimax.quixproc.codex.util.DocumentSelector;
 import innovimax.quixproc.codex.util.PipedDocument;
 import innovimax.quixproc.codex.util.StepContext;
+import innovimax.quixproc.codex.util.Waiting;
 import innovimax.quixproc.codex.util.shared.ChannelReader;
 import innovimax.quixproc.util.shared.ChannelInit;
 import innovimax.quixproc.util.shared.ChannelPosition;
 
+import java.util.Hashtable;
+import java.util.Iterator;
+
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XPathCompiler;
+import net.sf.saxon.s9api.XPathExecutable;
+import net.sf.saxon.s9api.XPathSelector;
+import net.sf.saxon.s9api.XdmAtomicValue;
+import net.sf.saxon.s9api.XdmDestination;
+import net.sf.saxon.s9api.XdmItem;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.s9api.XdmNodeKind;
+import net.sf.saxon.sxpath.IndependentContext;
+
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.DocumentSequence;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.model.NamespaceBinding;
+import com.xmlcalabash.model.RuntimeValue;
+import com.xmlcalabash.model.Step;
+import com.xmlcalabash.util.S9apiUtils;
+
+/**
+ * Select.java
+ *
+ * Copyright 2008 Mark Logic Corporation.
+ * Portions Copyright 2007 Sun Microsystems, Inc.
+ * All rights reserved.
+ *
+ * The contents of this file are subject to the terms of either the GNU
+ * General Public License Version 2 only ("GPL") or the Common
+ * Development and Distribution License("CDDL") (collectively, the
+ * "License"). You may not use this file except in compliance with the
+ * License. You can obtain a copy of the License at
+ * https://runtime.dev.java.net/public/CDDL+GPL.html or
+ * docs/CDDL+GPL.txt in the distribution. See the License for the
+ * specific language governing permissions and limitations under the
+ * License. When distributing the software, include this License Header
+ * Notice in each file and include the License file at docs/CDDL+GPL.txt.
+ *
+ * Ideally, I'd like this code to perform the selections in a lazy fashion, but that's
+ * hard because it has to be possible to answer questions about how many documents
+ * will be returned. So for now, I'm just doing it all up front.
+ *
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 10, 2008
+ * Time: 10:13:58 PM
+ * To change this template use File | Settings | File Templates.
+ */
 public class XSelect implements ReadablePipe {    
     private ReadablePipe source = null;
     private String select = null;
@@ -64,29 +99,31 @@ public class XSelect implements ReadablePipe {
         this.context = context;
         documents = new DocumentSequence(runtime);
         this.forStep = forStep;
-    }
+    } 
 
     public void canReadSequence(boolean sequence) {
         // nop; always true
     }
-    
-    public DocumentSequence documents() {
-        return documents;
-    }
 
+    public boolean readSequence() {
+        return true;
+    }
+    
     public String toString() {
         return "xselect " + documents;
-    }    
+    }       
     
     // Innovimax: modified function
     //private void readSource() {    
     private void readSource(StepContext stepContext) {            
         // Innovimax : obsolete
-        //initialized = true;       
+        //initialized = true; 
 
-        try {
+        try {            
             NamespaceBinding bindings = new NamespaceBinding(runtime,context);
             XPathCompiler xcomp = runtime.getProcessor().newXPathCompiler();
+            xcomp.setBaseURI(context.getBaseURI());            
+
             IndependentContext icontext = (IndependentContext) xcomp.getUnderlyingStaticContext();
 
             Hashtable<QName, RuntimeValue> inScopeOptions = new Hashtable<QName, RuntimeValue> ();
@@ -99,7 +136,7 @@ public class XSelect implements ReadablePipe {
             Hashtable<QName, RuntimeValue> boundOpts = new Hashtable<QName, RuntimeValue> ();
             for (QName name : inScopeOptions.keySet()) {
                 RuntimeValue v = inScopeOptions.get(name);
-                if (v.initialized()) {                    
+                if (v.initialized()) {
                     boundOpts.put(name, v);
                 }
             }
@@ -111,30 +148,28 @@ public class XSelect implements ReadablePipe {
             for (String prefix : bindings.getNamespaceBindings().keySet()) {
                 xcomp.declareNamespace(prefix, bindings.getNamespaceBindings().get(prefix));
             }
-
-            XPathExecutable xexec = xcomp.compile(select);
-            selector = xexec.load();
+            
+            XPathExecutable xexec = xcomp.compile(select);            
+            selector = xexec.load();            
 
             for (QName varname : boundOpts.keySet()) {
                 XdmAtomicValue avalue = boundOpts.get(varname).getUntypedAtomic(runtime);
                 selector.setVariable(varname,avalue);
-            }
+            }            
 
-        } catch (SaxonApiException sae) {
+        } catch (SaxonApiException sae) {                        
             if (S9apiUtils.xpathSyntaxError(sae)) {
                 throw XProcException.dynamicError(23, context, "Invalid XPath expression: '" + select + "'.");
             } else {
                 throw new XProcException(sae);
             }
+        } catch (Throwable e) {          
+          e.printStackTrace();
         }
 
-        // Innovimax: new interface        
-        //while (source.moreDocuments()) {
-        while (source.moreDocuments(stepContext)) {        
+        while (source.moreDocuments(stepContext)) {
             // Ok, time to go looking for things to select from.
             try {
-                // Innovimax: new interface
-                //XdmNode doc = source.read();
                 XdmNode doc = source.read(stepContext);
 
                 if (reader != null) {
@@ -164,10 +199,10 @@ public class XSelect implements ReadablePipe {
                     if (reader != null) {
                         runtime.finest(null, reader.getNode(), reader.getName() + " select wrote '" + (sdoc == null ? "null" : sdoc.getBaseURI()) + "' to " + documents);
                     }
-                                        
+                    
                     // Innovimax: new interface                    
-                    documents.newPipedDocument(stepContext.curChannel, sdoc);
-
+                    //documents.add(sdoc);
+                    documents.newPipedDocument(stepContext.curChannel, sdoc);                                        
                 }
             } catch (SaxonApiException sae) {
                 throw new XProcException(sae);
@@ -243,6 +278,11 @@ public class XSelect implements ReadablePipe {
         initialize(newContext);
         return documents.size(newContext.curChannel);
     }
+    
+    // Innovimax: new function
+    public DocumentSequence documents(StepContext stepContext) {
+        return documents;
+    }        
 
     // Innovimax: new function
     public XdmNode read(StepContext stepContext) throws SaxonApiException {         
@@ -285,6 +325,11 @@ public class XSelect implements ReadablePipe {
     }
     
     // Innovimax: new function
+    public String sequenceInfos() {        
+        return documents.toString();
+    }     
+    
+    // Innovimax: new function
     private void readStreamSource(StepContext stepContext) {              
         c_init.close(stepContext.curChannel);
         
@@ -317,7 +362,7 @@ public class XSelect implements ReadablePipe {
     //*************************************************************************
     //*************************************************************************
     //*************************************************************************      
-/*
+/*    
     private Logger logger = Logger.getLogger(this.getClass().getName());
     private boolean initialized = false;
     private int docindex = 0;
@@ -345,6 +390,10 @@ public class XSelect implements ReadablePipe {
             readSource();
         }
         return documents.size();
+    }
+
+    public DocumentSequence documents() {
+        return documents;
     }
 
     public void setReader(Step step) {

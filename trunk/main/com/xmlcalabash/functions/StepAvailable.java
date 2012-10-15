@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,7 +21,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.functions;
 
-import com.xmlcalabash.runtime.XCompoundStep;
 import net.sf.saxon.expr.Expression;
 import net.sf.saxon.expr.StaticContext;
 import net.sf.saxon.expr.XPathContext;
@@ -29,17 +28,19 @@ import net.sf.saxon.lib.ExtensionFunctionCall;
 import net.sf.saxon.lib.ExtensionFunctionDefinition;
 import net.sf.saxon.om.SequenceIterator;
 import net.sf.saxon.om.StructuredQName;
+import net.sf.saxon.s9api.QName;
 import net.sf.saxon.trans.XPathException;
 import net.sf.saxon.tree.iter.SingletonIterator;
 import net.sf.saxon.value.BooleanValue;
 import net.sf.saxon.value.SequenceType;
-import net.sf.saxon.s9api.QName;
+
 import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.runtime.XStep;
-import com.xmlcalabash.runtime.XPipeline;
+import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.model.DeclareStep;
+import com.xmlcalabash.runtime.XCompoundStep;
+import com.xmlcalabash.runtime.XPipeline;
+import com.xmlcalabash.runtime.XStep;
 
 //
 // The contents of this file are subject to the Mozilla Public License Version 1.0 (the "License");
@@ -64,15 +65,24 @@ import com.xmlcalabash.model.DeclareStep;
  */
 
 public class StepAvailable extends ExtensionFunctionDefinition {
-    private XProcRuntime runtime;
     private static StructuredQName funcname = new StructuredQName("p", XProcConstants.NS_XPROC, "step-available");
+    private ThreadLocal<XProcRuntime> tl_runtime = new ThreadLocal<XProcRuntime>() {
+        protected synchronized XProcRuntime initialValue() {
+            return null;
+        }
+    };
+    
+    private XProcRuntime runtime = null; // Innovimax: new property    
 
     protected StepAvailable() {
         // you can't call this one
     }
 
+    // Innovimax: modified constructor
     public StepAvailable(XProcRuntime runtime) {
-        this.runtime = runtime;
+        // Innovimax: desactivate ThreadLocal 
+        //tl_runtime.set(runtime);
+        this.runtime = runtime; 
     }
 
     public StructuredQName getFunctionQName() {
@@ -106,15 +116,20 @@ public class StepAvailable extends ExtensionFunctionDefinition {
             staticContext = context;
         }
 
+        // Innovimax: modified function
         public SequenceIterator call(SequenceIterator[] arguments, XPathContext context) throws XPathException {
+          
+            // Innovimax: desactivated function
+            if (true) throw new RuntimeException("StepAvailable is desactivated");            
+          
             StructuredQName stepName = null;
             
-            // Innovimax: desactivated function
-            if (true) throw new RuntimeException("StepAvailable is desactivated");
-           
+            // Innovimax: desactivate ThreadLocal
+            //XProcRuntime runtime = tl_runtime.get();    
             XStep step = runtime.getXProcData().getStep();
             // FIXME: this can't be the best way to do this...
-            if (!(step instanceof XCompoundStep)) {
+            // step == null in use-when
+            if (step != null && !(step instanceof XCompoundStep)) {
                 throw XProcException.dynamicError(23);
             }
 
@@ -132,8 +147,7 @@ public class StepAvailable extends ExtensionFunctionDefinition {
             }
 
             boolean value = false;
-            QName stepType = new QName("x", stepName.getNamespaceURI(), stepName.getLocalName());
-
+            QName stepType = new QName("x", stepName.getURI(), stepName.getLocalPart());
             // FIXME: This doesn't seem terribly efficient...
             while (! (step instanceof XPipeline)) {
                 step = step.getParent();
@@ -149,8 +163,7 @@ public class StepAvailable extends ExtensionFunctionDefinition {
 
             if (decl != null) {
                 if (decl.isAtomic()) {
-                    String className = runtime.getConfiguration().implementationClass(decl.getDeclaredType());
-                    value = (className != null);
+                    value = runtime.getConfiguration().isStepAvailable(decl.getDeclaredType());
                 } else {
                     value = true;
                 }

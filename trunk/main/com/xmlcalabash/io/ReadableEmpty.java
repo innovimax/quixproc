@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,22 +22,31 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.io;
 
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.SaxonApiException;
-import com.xmlcalabash.model.Step;
-
 import innovimax.quixproc.codex.util.PipedDocument;
 import innovimax.quixproc.codex.util.StepContext;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XdmNode;
 
+import com.xmlcalabash.model.Step;
+// Innovimax: new import
+// Innovimax: new import
+
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Nov 19, 2009
+ * Time: 4:00:20 PM
+ * To change this template use File | Settings | File Templates.
+ */
 public class ReadableEmpty implements ReadablePipe {
     public void canReadSequence(boolean sequence) {
         // nop;
     }
-  
-    public DocumentSequence documents() {
-        return null;
-    }
-           
+    
+    public boolean readSequence() {
+        return false;
+    }    
+    
     //*************************************************************************
     //*************************************************************************        
     //*************************************************************************
@@ -82,6 +91,11 @@ public class ReadableEmpty implements ReadablePipe {
     }   
     
     // Innovimax: new function
+    public DocumentSequence documents(StepContext context) {
+        return null;
+    }       
+    
+    // Innovimax: new function
     public XdmNode read(StepContext context) throws SaxonApiException {         
         return null;
     } 
@@ -89,7 +103,12 @@ public class ReadableEmpty implements ReadablePipe {
     // Innovimax: new function
     public PipedDocument readAsStream(StepContext context) {
         return null;    
-    }     
+    }  
+    
+    // Innovimax: new function
+    public String sequenceInfos() {        
+        return "";
+    }         
     
     //*************************************************************************
     //*************************************************************************        
@@ -97,8 +116,8 @@ public class ReadableEmpty implements ReadablePipe {
     // INNOVIMAX DEPRECATION
     //*************************************************************************
     //*************************************************************************
-    //*************************************************************************  
-/*  
+    //*************************************************************************      
+/*
     public XdmNode read() throws SaxonApiException {
         return null;    }
 
@@ -121,5 +140,9 @@ public class ReadableEmpty implements ReadablePipe {
     public int documentCount() {
         return 0;
     }
-*/
+
+    public DocumentSequence documents() {
+        return null;
+    }
+*/    
 }

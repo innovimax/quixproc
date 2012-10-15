@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -25,27 +25,32 @@ package com.xmlcalabash.library;
 import java.io.IOException;
 import java.net.URI;
 
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.util.S9apiUtils;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.util.TreeWriter;
-import org.iso_relax.verifier.VerifierFactory;
-import org.iso_relax.verifier.Verifier;
-import org.iso_relax.verifier.Schema;
-import org.iso_relax.verifier.VerifierConfigurationException;
-import org.xml.sax.ErrorHandler;
-import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
 
-import com.xmlcalabash.runtime.XAtomicStep;
+import org.iso_relax.verifier.Schema;
+import org.iso_relax.verifier.Verifier;
+import org.iso_relax.verifier.VerifierConfigurationException;
+import org.iso_relax.verifier.VerifierFactory;
+import org.xml.sax.ErrorHandler;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.TreeWriter;
+
+/**
+ *
+ * @author ndw
+ */
 public class ValidateWithRNG extends DefaultStep {
     private static final QName _assert_valid = new QName("", "assert-valid");
     private static final QName _dtd_compatibility = new QName("", "dtd-compatibility");
@@ -102,18 +107,22 @@ public class ValidateWithRNG extends DefaultStep {
                 throw new XProcException(XProcException.err_E0001, "Document is not valid");
             }
 
-            result.write(stepContext, doc);
+            result.write(stepContext,doc);
         } catch (VerifierConfigurationException ex) {
-            ex.printStackTrace();
+            if (runtime.getDebug()) {
+                ex.printStackTrace();
+            }
             throw new XProcException(ex);
         } catch (SAXException sx) {
             // Assume the only error is validity failed?
             if (getOption(_assert_valid,false)) {
                 throw XProcException.stepError(53);
             }
-            result.write(stepContext, doc);
+            result.write(stepContext,doc);
         } catch (IOException ioe) {
-            ioe.printStackTrace();
+            if (runtime.getDebug()) {
+                ioe.printStackTrace();
+            }
             throw new XProcException(ioe);
         }
     }

@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,28 +22,26 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.library;
 
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.util.RelevantNodes;
-import com.xmlcalabash.util.TreeWriter;
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import net.sf.saxon.s9api.Serializer;
-import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.Axis;
-import net.sf.saxon.s9api.XdmNodeKind;
-import net.sf.saxon.s9api.Processor;
-import net.sf.saxon.s9api.DocumentBuilder;
-import net.sf.saxon.s9api.XQueryCompiler;
-import net.sf.saxon.s9api.XQueryExecutable;
-import net.sf.saxon.s9api.XQueryEvaluator;
-
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.io.ByteArrayOutputStream;
 
-import com.xmlcalabash.runtime.XAtomicStep;
+import net.sf.saxon.s9api.Axis;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.Serializer;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.s9api.XdmNodeKind;
 
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.RelevantNodes;
+import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.TreeWriter;
+
+/**
+ *
+ * @author ndw
+ */
 public class EscapeMarkup extends DefaultStep {
     private ReadablePipe source = null;
     private WritablePipe result = null;
@@ -87,27 +85,11 @@ public class EscapeMarkup extends DefaultStep {
                 tree.addAttributes(child);
                 tree.startContent();
 
-                Processor qtproc = runtime.getProcessor();
-                DocumentBuilder builder = qtproc.newDocumentBuilder();
-                try {
-                    builder.setBaseURI(new URI("http://example.com/"));
-                } catch (URISyntaxException ex) {
-                    // can't happen
-                }
-
                 // Serialize the *whole* thing, then strip off the start and end tags, because
                 // otherwise namespace fixup messes with the namespace bindings
-                XQueryCompiler xqcomp = qtproc.newXQueryCompiler();
-                XQueryExecutable xqexec = xqcomp.compile(".");
-                XQueryEvaluator xqeval = xqexec.load();
-                xqeval.setContextItem(child);
-
                 ByteArrayOutputStream outstr = new ByteArrayOutputStream();
                 serializer.setOutputStream(outstr);
-
-                xqeval.setDestination(serializer);
-                xqeval.run();
-
+                S9apiUtils.serialize(runtime, child, serializer);
                 String data = outstr.toString();
 
                 data = data.replaceAll("^<.*?>",""); // Strip off the start tag...
@@ -119,6 +101,6 @@ public class EscapeMarkup extends DefaultStep {
         }
         tree.endDocument();
 
-        result.write(stepContext, tree.getResult());
+        result.write(stepContext,tree.getResult());
     }
 }

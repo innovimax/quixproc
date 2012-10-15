@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,15 +21,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.runtime;
 
-import com.xmlcalabash.core.XProcData;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.io.Pipe;
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.model.RuntimeValue;
-import com.xmlcalabash.model.Step;
-import com.xmlcalabash.model.Variable;
+import innovimax.quixproc.codex.util.VariablesCalculator;
+
+import java.util.Iterator;
+
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XPathCompiler;
@@ -39,11 +34,22 @@ import net.sf.saxon.s9api.XdmAtomicValue;
 import net.sf.saxon.s9api.XdmItem;
 import net.sf.saxon.s9api.XdmNode;
 
-import java.util.Iterator;
-import java.util.Vector;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.Pipe;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.model.RuntimeValue;
+import com.xmlcalabash.model.Step;
+import com.xmlcalabash.model.Variable;
 
-import innovimax.quixproc.codex.util.VariablesCalculator;
-
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 14, 2008
+ * Time: 5:44:42 AM
+ * To change this template use File | Settings | File Templates.
+ */
 public class XUntilUnchanged extends XCompoundStep {
     private static final QName doca = new QName("","doca");
     private static final QName docb = new QName("","docb");
@@ -61,7 +67,7 @@ public class XUntilUnchanged extends XCompoundStep {
             if (current == null) {
                 current = new Pipe(runtime);
             }
-            return new Pipe(runtime,current.documents());
+            return new Pipe(runtime,current.documents(stepContext));
         } else {
             return super.getBinding(stepName, portName);
         }
@@ -77,10 +83,9 @@ public class XUntilUnchanged extends XCompoundStep {
         sequencePosition = 0;
     }
 
-    // Innovimax: replaced/modified by gorun()
-    //public void run() throws SaxonApiException {
+    // Innovimax: modified function
     public void gorun() throws SaxonApiException {
-        info(null, "Running cx:until-unchanged " + step.getName());
+        fine(null, "Running cx:until-unchanged " + step.getName());
 
         // Innovimax: XProcData desactivated
         //XProcData data = runtime.getXProcData();
@@ -99,7 +104,6 @@ public class XUntilUnchanged extends XCompoundStep {
 
         // Innovimax: XProcData desactivated
         //runtime.getXProcData().setIterationSize(sequenceLength);
-        setIterationSize(sequenceLength); 
 
         String iPortName = null;
         String oPortName = null;
@@ -120,13 +124,12 @@ public class XUntilUnchanged extends XCompoundStep {
                 while (changed) {
                     // Setup the current port before we compute variables!
                     current.resetWriter(stepContext);
-                    current.write(stepContext, is_doc);
+                    current.write(stepContext,is_doc);
                     finest(step.getNode(), "Copy to current");
 
-                    sequencePosition++;                    
+                    sequencePosition++;
                     // Innovimax: XProcData desactivated
-                    //runtime.getXProcData().setIterationPosition(sequencePosition);                    
-                    setIterationPosition(sequencePosition);                     
+                    //runtime.getXProcData().setIterationPosition(sequencePosition);
 
                     for (Variable var : step.getVariables()) {
                         RuntimeValue value = computeValue(var);
@@ -137,20 +140,19 @@ public class XUntilUnchanged extends XCompoundStep {
                     // so the order in which we calculate them doesn't matter. That will change if/when
                     // there are such compound steps.
 
-                    inScopeOptions = parent.getInScopeOptions();                
+                    // Calculate all the variables
+                    inScopeOptions = parent.getInScopeOptions();
                     
-                    // Innovimax: calculate all variables                    
+                    // Innovimax: XProcData desactivated
                     /*for (Variable var : step.getVariables()) {
                         RuntimeValue value = computeValue(var);
                         inScopeOptions.put(var.getName(), value);
                     }*/
                     VariablesCalculator vcalculator = new VariablesCalculator(runtime, this, step, inScopeOptions);
-                    vcalculator.exec();                                         
+                    vcalculator.exec();                      
 
                     for (XStep step : subpipeline) {
-                        // Innovimax: run() replaced by gorun()
-                        //step.run();
-                        step.gorun();                                                              
+                        step.gorun();
                     }
 
                     int docsCopied = 0;
@@ -189,7 +191,7 @@ public class XUntilUnchanged extends XCompoundStep {
                 }
 
                 WritablePipe pipe = outputs.get(oPortName);
-                pipe.write(stepContext, os_doc);
+                pipe.write(stepContext,os_doc);
             }
         }
 
@@ -224,5 +226,6 @@ public class XUntilUnchanged extends XCompoundStep {
     // Innovimax: new function
     private void cloneInstantiation(Pipe current) {
         this.current = current;                
-    }      
+    }       
+      
 }

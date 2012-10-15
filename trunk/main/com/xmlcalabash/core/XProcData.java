@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,18 +21,21 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.core;
 
-import com.xmlcalabash.runtime.XStep;
-import com.xmlcalabash.util.TreeWriter;
-
+import java.util.List;
 import java.util.Stack;
 import java.util.Vector;
-import java.util.List;
-import java.net.URI;
-import java.net.URISyntaxException;
 
 import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.QName;
 
+import com.xmlcalabash.runtime.XStep;
+
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 20, 2009
+ * Time: 9:25:07 AM
+ * To change this template use File | Settings | File Templates.
+ */
 public class XProcData {
     private Stack<StackFrame> stack = null;
     private XProcRuntime runtime = null;
@@ -42,8 +45,7 @@ public class XProcData {
         stack = new Stack<StackFrame> ();
     }
 
-   // Innovimax: desactivated code    
-    public void openFrame(XStep step) {        
+    public void openFrame(XStep step) {
         int pos = 1;
         int size = 1;
 
@@ -60,50 +62,40 @@ public class XProcData {
         stack.peek().step = step;
     }
 
-    // Innovimax: desactivated function
-    public void closeFrame() { 
+    public void closeFrame() {
         stack.pop();
     }
 
-    // Innovimax: desactivated function
+    // Innovimax: modified function
     public int getDepth() {
-        //if (true) throw new RuntimeException("XProcData.getDepth");
-        //return stack.size();
-        // Innovimax: to preserve correct cases
-        return 1; 
+        //if (true) throw new RuntimeException("XProcData.getDepth");      
+        // Innovimax: to preserve correct cases  
+        //return stack.size();        
+        return 1;            
     }
-    
-    // Innovimax: desactivated function
-    public XStep getStep() {        
+        
+    public XStep getStep() {
         if (stack.size() == 0) {
             return null;
         } else {
             return stack.peek().step;
-        }        
+        }
     }
 
-    // Innovimax: desactivated function
     public void setIterationPosition(int pos) {
-        if (true) throw new RuntimeException("XProcData.setIterationPosition");
-        stack.peek().iterPos = pos;        
+        stack.peek().iterPos = pos;
     }
 
-    // Innovimax: desactivated function
     public int getIterationPosition() {
-        if (true) throw new RuntimeException("XProcData.getIterationPosition");
-        return stack.peek().iterPos;        
+        return stack.peek().iterPos;
     }
 
-    // Innovimax: desactivated function
     public void setIterationSize(int size) {
-        if (true) throw new RuntimeException("XProcData.setIterationSize");
-        stack.peek().iterSize = size;        
+        stack.peek().iterSize = size;
     }
 
-    // Innovimax: desactivated function
     public int getIterationSize() {
-        if (true) throw new RuntimeException("XProcData.getIterationSize");
-        return stack.peek().iterSize;        
+        return stack.peek().iterSize;
     }
 
     private boolean tryGroup(XStep step) {
@@ -114,9 +106,7 @@ public class XProcData {
         return false;
     }
 
-    // Innovimax: desactivated function
     public boolean catchError(XdmNode error) {
-        if (true) throw new RuntimeException("XProcData.catchError");
         // Errors accumulate on the nearest p:try/p:group ancestor because that's where we
         // can read them. Note, however, that errors raised in a p:catch are NOT
         // part of the parent p:try but rather the grandparent.
@@ -135,9 +125,7 @@ public class XProcData {
         }
     }
 
-    // Innovimax: desactivated function
     public List<XdmNode> errors() {
-        if (true) throw new RuntimeException("XProcData.errors");
         // Errors accumulate on the nearest p:try/p:group ancestor
         int pos = stack.size() - 1;
         while (pos >= 0 && !tryGroup(stack.get(pos).step)) {

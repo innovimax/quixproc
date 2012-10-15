@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -26,18 +26,22 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.util.TreeWriter;
-import com.xmlcalabash.util.URIUtils;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.model.RuntimeValue;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.model.RuntimeValue;
 import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.TreeWriter;
+import com.xmlcalabash.util.URIUtils;
 
+/**
+ *
+ * @author ndw
+ */
 public class DirectoryList extends DefaultStep {
     private static final QName _name = new QName("", "name");
     private static final QName _path = new QName("", "path");
@@ -80,17 +84,17 @@ public class DirectoryList extends DefaultStep {
             path = step.getNode().getBaseURI().resolve(".").toASCIIString();
         }
 
-        runtime.fine(null, step.getNode(), "path: " + path);
+        runtime.finer(null, step.getNode(), "path: " + path);
 
         RuntimeValue value = getOption(_include_filter);
         if (value != null) {
             inclFilter = value.getString();
-            runtime.fine(null, step.getNode(), "include: " + inclFilter);
+            runtime.finer(null, step.getNode(), "include: " + inclFilter);
         }
         value = getOption(_exclude_filter);
         if (value != null) {
             exclFilter = value.getString();
-            runtime.fine(null, step.getNode(), "exclude: " + exclFilter);
+            runtime.finer(null, step.getNode(), "exclude: " + exclFilter);
         }
 
         File dir = URIUtils.getFile(path);
@@ -126,16 +130,16 @@ public class DirectoryList extends DefaultStep {
             boolean use = true;
             String filename = file.getName();
 
-            runtime.fine(null, step.getNode(), "name: " + filename);
+            runtime.finer(null, step.getNode(), "name: " + filename);
 
             if (inclFilter != null) {
                 use = filename.matches(inclFilter);
-                runtime.fine(null, step.getNode(), "include: " + use);
+                runtime.finer(null, step.getNode(), "include: " + use);
             }
 
             if (exclFilter != null) {
                 use = use && !filename.matches(exclFilter);
-                runtime.fine(null, step.getNode(), "exclude: " + !use);
+                runtime.finer(null, step.getNode(), "exclude: " + !use);
             }
 
             if (use) {
@@ -164,7 +168,7 @@ public class DirectoryList extends DefaultStep {
         tree.addEndElement();
         tree.endDocument();
 
-        result.write(stepContext, tree.getResult());
+        result.write(stepContext,tree.getResult());
     }
 }
 

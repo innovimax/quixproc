@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -101,7 +101,10 @@ public class Store extends DefaultStep {
             
             EventReader reader = new EventReader(source.readAsStream(stepContext), null);
             while (reader.hasEvent()) {              
-               processEvent(reader.nextEvent(), reader.pipe());     
+               processEvent(reader.nextEvent(), reader.pipe());
+               if (reader.hasEvent()) {
+                 processEvent(reader.nextEvent(), reader.pipe());                       
+               }
                Thread.yield();          
            }                                              
         } catch (Exception e) {
@@ -125,6 +128,9 @@ public class Store extends DefaultStep {
     private void processEvent(QuixEvent event, ReadablePipe in) throws ReadingException { 
         try {       
             switch(event.getType()) {                
+              case START_SEQUENCE:                    
+                runtime.getTracer().debug(step,null,-1,null,null,"  STORE > START SEQUENCE");        
+                break;
                 case START_DOCUMENT:                    
                     runtime.getTracer().debug(step,null,-1,null,null,"  STORE > START DOCUMENT");        
                     break;
@@ -135,10 +141,13 @@ public class Store extends DefaultStep {
                     // innovimax: statistics                      
                     totalFileSize += output.length();                    
                     break;
+                case END_SEQUENCE:
+                  runtime.getTracer().debug(step,null,-1,null,null,"  STORE > END SEQUENCE"); 
+                  break;
                 case START_ELEMENT:                  
                     if (first) {                      
-                        out.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-                        out.println();                         
+                        //out.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+                        //out.println();                         
                         first = false;
                     } else if (open) {
                         out.write(">");
@@ -153,7 +162,7 @@ public class Store extends DefaultStep {
                         open = false;
                     }                         
                     out.write("</"+event.asEndElement().getFullName()+">");
-                    out.println();            
+                    //out.println();            
                     break;
                 case NAMESPACE :
                     out.write(" xmlns");

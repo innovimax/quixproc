@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,31 +21,40 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.runtime;
 
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.util.TreeWriter;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.model.*;
-import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.QName;
-import net.sf.saxon.om.StructuredQName; // Innovimax: new import
-import net.sf.saxon.trans.XPathException; // Innovimax: new import
-import net.sf.saxon.Configuration; // Innovimax: new import
-import net.sf.saxon.s9api.Processor; // Innovimax: new import
+import innovimax.quixproc.codex.util.ErrorHandler;
+import innovimax.quixproc.codex.util.VariablesCalculator;
 
 import java.util.Vector;
 
-import javax.xml.transform.ErrorListener; // Innovimax: new import
-import javax.xml.transform.TransformerException; // Innovimax: new import
-import javax.xml.transform.SourceLocator; // Innovimax: new import
+import javax.xml.transform.ErrorListener;
+import javax.xml.transform.SourceLocator;
+import javax.xml.transform.TransformerException;
 
-import innovimax.quixproc.codex.util.VariablesCalculator;
-import innovimax.quixproc.codex.util.ErrorHandler;
+import net.sf.saxon.Configuration;
+import net.sf.saxon.om.StructuredQName;
+import net.sf.saxon.s9api.Processor;
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.trans.XPathException;
 
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.model.DeclareStep;
+import com.xmlcalabash.model.Output;
+import com.xmlcalabash.model.Step;
+import com.xmlcalabash.util.TreeWriter;
 
- // Innovimax: modified constructor
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 13, 2008
+ * Time: 7:40:35 PM
+ * To change this template use File | Settings | File Templates.
+ */
+// Innovimax: modified implementation
 //public class XTry extends XCompoundStep {
 public class XTry extends XCompoundStep implements ErrorListener {
     private static final QName c_errors = new QName("c", XProcConstants.NS_XPROC_STEP, "errors");
@@ -68,7 +77,7 @@ public class XTry extends XCompoundStep implements ErrorListener {
                 XCatch newstep = new XCatch(runtime, substep, this);
                 newstep.instantiate(substep);
             } else {
-                throw new XProcException(step.getNode(), "This can't happen, can it? try contains something that isn't a group or an catch?");
+                throw new XProcException(step.getNode(), "This can't happen, can it? try contains something that isn't a group or a catch?");
             }
         }
 
@@ -90,19 +99,18 @@ public class XTry extends XCompoundStep implements ErrorListener {
         }
     }
 
-    // Innovimax: replaced/modified by gorun()
-    //public void run() throws SaxonApiException {
+    // Innovimax: modified function
     public void gorun() throws SaxonApiException {
 
         inScopeOptions = parent.getInScopeOptions();
         
-        // Innovimax: calculate all variables                
+        // Innovimax: calculate all variables       
         /*for (Variable var : step.getVariables()) {
             RuntimeValue value = computeValue(var);
             inScopeOptions.put(var.getName(), value);
         }*/
         VariablesCalculator vcalculator = new VariablesCalculator(runtime, this, step, inScopeOptions);
-        vcalculator.exec();         
+        vcalculator.exec();        
 
         XGroup xgroup = (XGroup) subpipeline.get(0);
 
@@ -117,7 +125,7 @@ public class XTry extends XCompoundStep implements ErrorListener {
                 xgroup.outputs.put(port, outputs.get(port));
             }
         }
-  
+
         try {
             // Innovimax set saxon error handler
             Processor processor = runtime.getConfiguration().getProcessor();
@@ -129,7 +137,7 @@ public class XTry extends XCompoundStep implements ErrorListener {
             // Innovimax: set group status            
             xgroup.lockOutput();
             // Innovimax: run step in a thread and wait
-            //xgroup.run();
+            //xgroup.gorun();
             Thread t = new Thread(errorHandler, xgroup);             
             runtime.getTracer().debug(this,null,-1,null,null,"  TRY > RUN STEP THREAD ["+xgroup.getName()+"]");            
             t.start();
@@ -141,57 +149,57 @@ public class XTry extends XCompoundStep implements ErrorListener {
                 }
                 Thread.yield();
             }             
-            runtime.getTracer().debug(this,null,-1,null,null,"  TRY > GROUP PASSED CORRECTLY");                        
-        } catch (Exception xe) {  
+            runtime.getTracer().debug(this,null,-1,null,null,"  TRY > GROUP PASSED CORRECTLY");   
+        } catch (Exception xe) {
             // Innovimax set saxon error handler
             Processor processor = runtime.getConfiguration().getProcessor();
             Configuration saxonConfig = processor.getUnderlyingConfiguration();      
             saxonConfig.setErrorListener(saxonErrorListener);                      
             // Innovimax: set group status            
-            xgroup.cancelOutput();          
-            
+            xgroup.cancelOutput();   
+                      
             TreeWriter treeWriter = new TreeWriter(runtime);
             treeWriter.startDocument(step.getNode().getBaseURI());
             treeWriter.addStartElement(c_errors);
             treeWriter.startContent();
-    
+
             // Innovimax : use try saxon error listener
             //for (XdmNode doc : runtime.getXProcData().errors()) {
             for (XdmNode doc : saxonErrors) {
                 treeWriter.addSubtree(doc);
             }
-    
+
             for (XdmNode doc : errors) {
                 treeWriter.addSubtree(doc);
             }
-    
+
             treeWriter.addEndElement();
             treeWriter.endDocument();
-    
+
             XCatch xcatch = (XCatch) subpipeline.get(1);
-    
+
             xcatch.writeError(treeWriter.getResult());
-    
+
             for (String port : inputs.keySet()) {
                 if (!port.startsWith("|")) {
                     xcatch.inputs.put(port, inputs.get(port));
                 }
             }
-    
+
             for (String port : outputs.keySet()) {
                 if (!port.endsWith("|")) {
                     xcatch.outputs.put(port, outputs.get(port));
                 }
             }
-    
-            xcatch.run();
+
+            xcatch.gorun();
         }
     }
 
     public void reportError(XdmNode doc) {
         errors.add(doc);
     }
-            
+    
     //*************************************************************************
     //*************************************************************************        
     //*************************************************************************
@@ -300,4 +308,5 @@ public class XTry extends XCompoundStep implements ErrorListener {
     private void cloneInstantiation(Vector<XdmNode> errors) {
         this.errors.addAll(errors);                
     }     
+ 
 }

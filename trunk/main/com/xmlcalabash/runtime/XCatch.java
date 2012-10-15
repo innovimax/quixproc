@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,13 +21,23 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.runtime;
 
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.io.*;
-import com.xmlcalabash.model.Step;
-import com.xmlcalabash.model.Binding;
-import net.sf.saxon.s9api.XdmNode;
 import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XdmNode;
 
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.Pipe;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.model.Binding;
+import com.xmlcalabash.model.Step;
+
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 13, 2008
+ * Time: 7:44:46 PM
+ * To change this template use File | Settings | File Templates.
+ */
 public class XCatch extends XCompoundStep {
     Pipe errorPipe = null;
 
@@ -36,7 +46,7 @@ public class XCatch extends XCompoundStep {
     }
 
     public void writeError(XdmNode doc) {
-        errorPipe.write(stepContext, doc);
+        errorPipe.write(stepContext,doc);
     }
 
     protected ReadablePipe getPipeFromBinding(Binding binding) {
@@ -50,7 +60,7 @@ public class XCatch extends XCompoundStep {
 
     public ReadablePipe getBinding(String stepName, String portName) {
         if (name.equals(stepName) && "error".equals(portName)) {
-            return new Pipe(runtime,errorPipe.documents());
+            return new Pipe(runtime,errorPipe.documents(stepContext));
         } else {
             return super.getBinding(stepName, portName);
         }
@@ -64,7 +74,7 @@ public class XCatch extends XCompoundStep {
                 for (ReadablePipe reader : inputs.get(port)) {
                     while (reader.moreDocuments(stepContext)) {
                         XdmNode doc = reader.read(stepContext);
-                        pipe.write(stepContext, doc);
+                        pipe.write(stepContext,doc);
                         finest(step.getNode(), "Compound input copy from " + reader + " to " + pipe);
                     }
                 }
@@ -91,5 +101,6 @@ public class XCatch extends XCompoundStep {
         XCatch clone = new XCatch(runtime, step, parent);
         super.cloneStep(clone);
         return clone;
-    }          
+    }      
+       
 }

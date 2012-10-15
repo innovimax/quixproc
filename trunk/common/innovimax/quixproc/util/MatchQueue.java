@@ -1,6 +1,6 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
+Copyright (C) 2011-2012 Innovimax
 All rights reserved.
 
 This program is free software; you can redistribute it and/or
@@ -19,8 +19,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package innovimax.quixproc.util;
 
+import innovimax.quixproc.datamodel.IStream;
+import innovimax.quixproc.datamodel.MatchEvent;
+
 import java.util.LinkedList;
-import innovimax.quixproc.datamodel.*;
 
 public class MatchQueue extends AbstractQueue
 {    

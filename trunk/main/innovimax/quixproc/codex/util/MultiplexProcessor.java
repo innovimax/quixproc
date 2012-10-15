@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -28,12 +28,10 @@ import innovimax.quixproc.util.MatchQueue;
 import java.util.LinkedList;
 import java.util.List;
 
-import net.sf.saxon.s9api.QName;
-
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.io.DocumentSequence;
+import com.xmlcalabash.io.ReadablePipe;
 
 public class MultiplexProcessor
 {

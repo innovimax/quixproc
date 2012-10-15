@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,19 +21,28 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.util;
 
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcMessageListener;
-import com.xmlcalabash.core.XProcRunnable;
+import java.net.URI;
+import java.util.logging.Logger;
+
+import javax.xml.transform.SourceLocator;
+import javax.xml.transform.TransformerException;
+
 import net.sf.saxon.om.StructuredQName;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.XdmNode;
 import net.sf.saxon.trans.XPathException;
 
-import javax.xml.transform.SourceLocator;
-import javax.xml.transform.TransformerException;
-import java.net.URI;
-import java.util.logging.Logger;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcMessageListener;
+import com.xmlcalabash.core.XProcRunnable;
 
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Dec 18, 2009
+ * Time: 8:18:21 AM
+ * To change this template use File | Settings | File Templates.
+ */
 public class DefaultXProcMessageListener implements XProcMessageListener {
     private static Logger defaultLogger = Logger.getLogger("com.xmlcalabash");
     private Logger log = defaultLogger;
@@ -49,6 +58,10 @@ public class DefaultXProcMessageListener implements XProcMessageListener {
     }
 
     public void error(Throwable exception) {
+        log.severe(exceptionMessage(exception) + exception.getMessage());
+    }
+
+    private String exceptionMessage(Throwable exception) {
         StructuredQName qCode = null;
         SourceLocator loc = null;
         String message = "";
@@ -108,7 +121,7 @@ public class DefaultXProcMessageListener implements XProcMessageListener {
             message = message + qCode.getDisplayName() + ":";
         }
 
-        log.severe(message + exception.getMessage());
+        return message;
     }
 
     public void warning(XProcRunnable step, XdmNode node, String message) {
@@ -120,6 +133,10 @@ public class DefaultXProcMessageListener implements XProcMessageListener {
         log.warning(message(step, node, message));
     }
 
+    public void warning(Throwable exception) {
+        log.warning(exceptionMessage(exception) + exception.getMessage());
+    }
+
     public void info(XProcRunnable step, XdmNode node, String message) {
         if (step != null) {
             log = Logger.getLogger(step.getClass().getName());
@@ -129,7 +146,14 @@ public class DefaultXProcMessageListener implements XProcMessageListener {
         log.info(message(step, node, message));
     }
 
+    // Innovimax: modified function
     public void fine(XProcRunnable step, XdmNode node, String message) {
+        // Innovimax: replace fine by info
+        if (true) { 
+            info(step,node,message); 
+            return;
+        }
+          
         if (step != null) {
             log = Logger.getLogger(step.getClass().getName());
         } else {

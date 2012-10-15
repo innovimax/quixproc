@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -25,7 +25,7 @@ import innovimax.quixproc.codex.util.Spying;
 
 public class Spy implements Spying {      
       
-    public void start(String[] args) { /* NOP */ }   
+    public void start(boolean streamed) { /* NOP */ }   
     public void exec() { /* NOP */ }
     public void stop() { /* NOP */ }  
     public long getCompileTime() { return 0; }
@@ -34,7 +34,7 @@ public class Spy implements Spying {
     public long getFileOutSize() { return 0; }
     public long getStartMemory() { return 0; }
     public long getMaximumMemory() { return 0; }
-    public long getLostMemory() { return 0; }
+    public long getEndMemory() { return 0; }
     public long getTotalEventCount() { return 0; }
     public long getDocEventCount() { return 0; }
     public long getAttrEventCount() { return 0; }

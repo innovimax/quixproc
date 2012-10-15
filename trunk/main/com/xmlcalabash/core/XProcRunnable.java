@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -23,10 +23,17 @@ package com.xmlcalabash.core;
 
 import net.sf.saxon.s9api.SaxonApiException;
 
- // Innovimax : implements Runnable
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Dec 19, 2009
+ * Time: 2:56:33 PM
+ * To change this template use File | Settings | File Templates.
+ */
+// Innovimax : implements Runnable
 public interface XProcRunnable extends Runnable {
-    public void reset();
+    public void reset();    
     // Innovimax: run() replaced by gorun()     
     //public void run() throws SaxonApiException;         
-    public void gorun() throws SaxonApiException;                                
+    public void gorun() throws SaxonApiException;         
 }

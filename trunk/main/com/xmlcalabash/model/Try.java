@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,12 +22,18 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.model;
 
+import java.util.HashSet;
 import java.util.Hashtable;
 
 import net.sf.saxon.s9api.XdmNode;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcConstants;
 
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcRuntime;
+
+/**
+ *
+ * @author ndw
+ */
 public class Try  extends DeclareStep {
     
     /** Creates a new instance of Try */
@@ -43,6 +49,11 @@ public class Try  extends DeclareStep {
 
     public DeclareStep getDeclaration() {
         return declaration;
+    }
+
+    @Override
+    public HashSet<String> getExcludeInlineNamespaces() {
+        return ((DeclareStep) parent).getExcludeInlineNamespaces();
     }
 
     @Override

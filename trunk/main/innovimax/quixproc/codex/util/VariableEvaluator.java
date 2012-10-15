@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -76,7 +76,7 @@ public class VariableEvaluator implements SpyHandler {
                     variables.put(javaQName(qName), new QuixValue(rv.getString()));
                 }
             }           
-            EventReader evr = new EventReader(doc, this);                                    
+            EventReader evr = new EventReader(doc, this);            
             XPathEvaluator evaluator = new XPathEvaluator(evr, select, variables, nsBindings);
             String value = evaluator.exec();
             runtime.getTracer().debug(step,null,-1,null,null,"    EVAL > '"+var.getName()+"' DYNAMIC COMPUTED TO ["+value+"] FOR SELECT ["+select+"]"); 

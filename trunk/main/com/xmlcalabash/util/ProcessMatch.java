@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -27,24 +27,29 @@ import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Vector;
 
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.model.RuntimeValue;
+import net.sf.saxon.Configuration;
 import net.sf.saxon.event.NamespaceReducer;
 import net.sf.saxon.event.PipelineConfiguration;
+import net.sf.saxon.om.NamespaceResolver;
 import net.sf.saxon.s9api.Axis;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmDestination;
 import net.sf.saxon.s9api.XdmNode;
 import net.sf.saxon.s9api.XdmNodeKind;
 import net.sf.saxon.s9api.XdmSequenceIterator;
-import net.sf.saxon.trans.XPathException;
+import net.sf.saxon.sxpath.XPathDynamicContext;
 import net.sf.saxon.sxpath.XPathEvaluator;
 import net.sf.saxon.sxpath.XPathExpression;
-import net.sf.saxon.sxpath.XPathDynamicContext;
-import net.sf.saxon.Configuration;
-import net.sf.saxon.om.NamespaceResolver;
+import net.sf.saxon.trans.XPathException;
 
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.model.RuntimeValue;
+
+/**
+ *
+ * @author ndw
+ */
 public class ProcessMatch extends TreeWriter {
     public static final int SAW_ELEMENT = 1;
     public static final int SAW_WHITESPACE = 2;
@@ -104,7 +109,7 @@ public class ProcessMatch extends TreeWriter {
             if (e.getMessage() != null && e.getMessage().contains("syntax error")) {
                 throw XProcException.dynamicError(23,node,e,"Syntax error in match pattern: \"" + match.getString() + "\"");
             } else {
-                throw new XProcException(node, e);
+                throw XProcException.dynamicError(23,node,e,"Expression could not be evaluated");
             }
         }
     }

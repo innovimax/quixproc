@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,16 +22,11 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.library;
 
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.model.RuntimeValue;
-import com.xmlcalabash.runtime.XAtomicStep;
-import com.xmlcalabash.util.ProcessMatch;
-import com.xmlcalabash.util.ProcessMatchingNodes;
-import net.sf.saxon.om.NamePool;
+import java.util.Hashtable;
+import java.util.Iterator;
+import java.util.Vector;
+
+import net.sf.saxon.om.InscopeNamespaceResolver;
 import net.sf.saxon.om.NodeInfo;
 import net.sf.saxon.s9api.Axis;
 import net.sf.saxon.s9api.QName;
@@ -41,12 +36,21 @@ import net.sf.saxon.s9api.XdmItem;
 import net.sf.saxon.s9api.XdmNode;
 import net.sf.saxon.s9api.XdmNodeKind;
 import net.sf.saxon.s9api.XdmSequenceIterator;
-import net.sf.saxon.tree.iter.NamespaceIterator;
 
-import java.util.Hashtable;
-import java.util.Vector;
-import java.util.logging.Level;
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.model.RuntimeValue;
+import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.ProcessMatch;
+import com.xmlcalabash.util.ProcessMatchingNodes;
 
+/**
+ *
+ * @author ndw
+ */
 public class Template extends DefaultStep implements ProcessMatchingNodes {
     private ReadablePipe source = null;
     private ReadablePipe template = null;
@@ -87,11 +91,12 @@ public class Template extends DefaultStep implements ProcessMatchingNodes {
     public void reset() {
         source.resetReader(stepContext);
         result.resetWriter(stepContext);
+        template.resetReader(stepContext);
     }
 
     public void gorun() throws SaxonApiException {
         if (step.getNode().getNodeName().equals(XProcConstants.p_document_template)) {
-            runtime.fine(this, step.getNode(), "The template step should be named p:template, the name p:document-template is deprecated.");
+            runtime.finer(this, step.getNode(), "The template step should be named p:template, the name p:document-template is deprecated.");
         }
 
         super.gorun();
@@ -105,7 +110,7 @@ public class Template extends DefaultStep implements ProcessMatchingNodes {
         matcher = new ProcessMatch(runtime, this);
         matcher.match(template.read(stepContext), new RuntimeValue("node()", step.getNode()));
 
-        result.write(stepContext, matcher.getResult());
+        result.write(stepContext,matcher.getResult());
     }
 
     public boolean processStartDocument(XdmNode node) throws SaxonApiException {
@@ -184,21 +189,22 @@ public class Template extends DefaultStep implements ProcessMatchingNodes {
         Hashtable<String,String> nsbindings = new Hashtable<String,String> ();
 
         // FIXME: Surely there's a better way to do this?
-        XdmNode parent = node.getParent();
+        XdmNode parent = node;
         while (parent != null
                 && parent.getNodeKind() != XdmNodeKind.ELEMENT
                 && parent.getNodeKind() != XdmNodeKind.DOCUMENT) {
             parent = parent.getParent();
         }
 
-        NodeInfo inode = parent.getUnderlyingNode();
-        NamePool pool = inode.getNamePool();
-        int inscopeNS[] = NamespaceIterator.getInScopeNamespaceCodes(inode);
-        for (int nspos = 0; nspos < inscopeNS.length; nspos++) {
-            int ns = inscopeNS[nspos];
-            String nspfx = pool.getPrefixFromNamespaceCode(ns);
-            String nsuri = pool.getURIFromNamespaceCode(ns);
-            nsbindings.put(nspfx,nsuri);
+        if (parent.getNodeKind() == XdmNodeKind.ELEMENT) {
+                  NodeInfo inode = parent.getUnderlyingNode();
+                  InscopeNamespaceResolver inscopeNS = new InscopeNamespaceResolver(inode);
+                  Iterator<String> prefixes = inscopeNS.iteratePrefixes();
+                  while (prefixes.hasNext()) {
+                      String nspfx = prefixes.next();
+                      String nsuri = inscopeNS.getURIForPrefix(nspfx, true);
+                      nsbindings.put(nspfx,nsuri);
+                  }
         }
 
         String peek = "";
@@ -245,7 +251,7 @@ public class Template extends DefaultStep implements ProcessMatchingNodes {
                     } else if ("\"".equals(ch)) {
                         ptext += "\"";
                         state = DQUOTEMODE;
-                    } else if ("}".equals(ch)) {                        
+                    } else if ("}".equals(ch)) {
                         items.addAll(evaluateXPath(context, nsbindings, ptext, params));
                         ptext = "";
                         state = START;

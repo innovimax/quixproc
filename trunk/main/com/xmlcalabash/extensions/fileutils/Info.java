@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,29 +21,37 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.extensions.fileutils;
 
-import com.xmlcalabash.library.DefaultStep;
-import com.xmlcalabash.library.HttpRequest;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.io.Pipe;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.runtime.XAtomicStep;
-import com.xmlcalabash.model.RuntimeValue;
-import com.xmlcalabash.util.TreeWriter;
-import com.xmlcalabash.util.S9apiUtils;
-import com.xmlcalabash.util.RelevantNodes;
+import java.io.File;
+import java.net.URI;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
+import java.util.TimeZone;
+
+import net.sf.saxon.s9api.Axis;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.Axis;
 
-import java.io.File;
-import java.net.URI;
-import java.util.GregorianCalendar;
-import java.util.TimeZone;
-import java.util.Calendar;
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.Pipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.library.DefaultStep;
+import com.xmlcalabash.library.HttpRequest;
+import com.xmlcalabash.model.RuntimeValue;
+import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.RelevantNodes;
+import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.TreeWriter;
 
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: May 24, 2009
+ * Time: 3:17:23 PM
+ * To change this template use File | Settings | File Templates.
+ */
 public class Info extends DefaultStep {
     private static final QName _href = new QName("href");
     private static final QName _method = new QName("method");
@@ -55,11 +63,14 @@ public class Info extends DefaultStep {
     private static final QName _username = new QName("username");
     private static final QName _password = new QName("password");
     private static final QName _auth_method = new QName("auth_method");
-    private static final QName _send_authorization = new QName("send_authorization");
+    private static final QName _send_authorization = new QName("send-authorization");
+    private static final QName _fail_on_error = new QName("fail-on-error");
     protected final static QName c_uri = new QName("c", XProcConstants.NS_XPROC_STEP, "uri");
     protected final static QName c_directory = new QName("c", XProcConstants.NS_XPROC_STEP, "directory");
     protected final static QName c_file = new QName("c", XProcConstants.NS_XPROC_STEP, "file");
     protected final static QName c_other = new QName("c", XProcConstants.NS_XPROC_STEP, "other");
+    protected final static QName c_error = new QName("c", XProcConstants.NS_XPROC_STEP, "error");
+    protected final static QName err_fu01 = new QName("err", XProcConstants.NS_XPROC_ERROR, "FU01");
 
     private static final QName _uri = new QName("uri");
     private static final QName _readable = new QName("readable");
@@ -92,6 +103,8 @@ public class Info extends DefaultStep {
         RuntimeValue href = getOption(_href);
         URI uri = href.getBaseURI().resolve(href.getString());
 
+        boolean failOnError = getOption(_fail_on_error, true);
+
         finest(step.getNode(), "Checking info for " + uri);
 
         TreeWriter tree = new TreeWriter(runtime);
@@ -101,8 +114,16 @@ public class Info extends DefaultStep {
             File file = new File(uri.getPath());
 
             if (!file.exists()) {
-                // Result is an empty sequence
-                return;
+                if (failOnError) {
+                    throw new XProcException(err_fu01);
+                } else {
+                    tree.addStartElement(c_error);
+                    tree.addText("File not found");
+                    tree.addEndElement();
+                    tree.endDocument();
+                    result.write(stepContext,tree.getResult());
+                    return;
+                }
             }
 
             if (file.isDirectory()) {
@@ -162,10 +183,8 @@ public class Info extends DefaultStep {
             req.addEndElement();
             req.endDocument();
 
-            inputPipe.write(stepContext, req.getResult());
-
-            // Innovimax: run() replaced by gorun()
-            // httpReq.run();
+            inputPipe.write(stepContext,req.getResult());
+            
             httpReq.gorun();
 
             XdmNode result = S9apiUtils.getDocumentElement(outputPipe.read(stepContext));
@@ -223,7 +242,7 @@ public class Info extends DefaultStep {
 
         tree.endDocument();
 
-        result.write(stepContext, tree.getResult());
+        result.write(stepContext,tree.getResult());
     }
 }
 

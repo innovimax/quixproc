@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -25,26 +25,30 @@ package com.xmlcalabash.library;
 import java.net.URI;
 import java.util.Stack;
 
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.util.ProcessMatch;
-import com.xmlcalabash.util.ProcessMatchingNodes;
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.model.RuntimeValue;
+import javax.xml.XMLConstants;
+
+import net.sf.saxon.s9api.Axis;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
 import net.sf.saxon.s9api.XdmSequenceIterator;
-import net.sf.saxon.s9api.Axis;
 
-import javax.xml.XMLConstants;
-
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.model.RuntimeValue;
 import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.ProcessMatch;
+import com.xmlcalabash.util.ProcessMatchingNodes;
 
+/**
+ *
+ * @author ndw
+ */
 public class AddXmlBase extends DefaultStep implements ProcessMatchingNodes {
-    private static final QName xml_base = new QName(XMLConstants.XML_NS_URI, "base");
-    private static final QName _all = new QName("", "all");
+  private static final QName xml_base = new QName("xml",XMLConstants.XML_NS_URI, "base"); 
+  private static final QName _all = new QName("", "all");
     private static final QName _relative = new QName("", "relative");
     private ProcessMatch matcher = null;
     private ReadablePipe source = null;
@@ -84,7 +88,7 @@ public class AddXmlBase extends DefaultStep implements ProcessMatchingNodes {
         matcher = new ProcessMatch(runtime, this);
         matcher.match(source.read(stepContext), new RuntimeValue("*", step.getNode()));
 
-        result.write(stepContext, matcher.getResult());
+        result.write(stepContext,matcher.getResult());
     }
 
     public boolean processStartDocument(XdmNode node) {
@@ -96,7 +100,7 @@ public class AddXmlBase extends DefaultStep implements ProcessMatchingNodes {
     }
 
     public boolean processStartElement(XdmNode node) throws SaxonApiException {
-        String xmlBase = node.getBaseURI().toASCIIString();
+        String xmlBase = node.getBaseURI().normalize().toASCIIString();
         boolean addXmlBase = all || baseURIStack.size() == 0;
         if (!addXmlBase) {
             addXmlBase = !baseURIStack.peek().equals(node.getBaseURI());

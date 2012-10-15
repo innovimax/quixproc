@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -26,6 +26,13 @@ import net.sf.saxon.om.Item;
 import net.sf.saxon.om.SequenceIterator;
 import net.sf.saxon.trans.XPathException;
 
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 20, 2008
+ * Time: 4:35:36 PM
+ * To change this template use File | Settings | File Templates.
+ */
 public class DocumentSequenceIterator implements SequenceIterator, LastPositionFinder {
     int position = 0;
     int last = 0;
@@ -43,9 +50,6 @@ public class DocumentSequenceIterator implements SequenceIterator, LastPositionF
         this.last = last;
     }
 
-    public int getLastPosition() throws XPathException {
-        return last;
-    }
 
     public Item next() throws XPathException {
         throw new UnsupportedOperationException("Don't know what to do for next() on DocumentSequenceIterator");
@@ -70,4 +74,9 @@ public class DocumentSequenceIterator implements SequenceIterator, LastPositionF
     public int getProperties() {
         return SequenceIterator.LAST_POSITION_FINDER;
     }
+    
+    @Override
+     public int getLength() throws XPathException {
+         return last;
+     }
 }

@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,18 +22,23 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.library;
 
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.model.RuntimeValue;
-import com.xmlcalabash.util.TreeWriter;
-import com.xmlcalabash.io.ReadablePipe;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
-import com.xmlcalabash.runtime.XAtomicStep;
 
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.model.RuntimeValue;
+import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.TreeWriter;
+
+/**
+ *
+ * @author ndw
+ */
 public class Error extends DefaultStep {
     private static final QName c_error = new QName("c", XProcConstants.NS_XPROC_STEP, "error");
     private static final QName _name = new QName("name");
@@ -108,11 +113,7 @@ public class Error extends DefaultStep {
 
         step.reportError(treeWriter.getResult());
 
-        if (errorCode != null) {
-            throw new XProcException(errorCode, doc.getStringValue());
-        } else {
-            throw new XProcException();
-        }
+        throw new XProcException(errorCode, doc, doc.getStringValue());
     }
 }
 

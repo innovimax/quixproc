@@ -1,6 +1,6 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
+Copyright (C) 2011-2012 Innovimax
 All rights reserved.
 
 This program is free software; you can redistribute it and/or
@@ -23,10 +23,16 @@ public class ExitException extends RuntimeException {
   
   int status = 0;
   
-  public ExitException(int status) { 
-    super(); 
-    this.status = status;
-  }    
+  public ExitException(int status) { this(status,null,null); }	
+  
+  public ExitException(int status, String message) { this(status,message,null); }
+  
+  public ExitException(int status, Throwable cause) { this(status,null,cause); } 
+
+  public ExitException(int status, String message, Throwable cause) { 
+      super(message,cause);
+      this.status = status;      
+  }   
 
   public int getStatus() { 
       return status;

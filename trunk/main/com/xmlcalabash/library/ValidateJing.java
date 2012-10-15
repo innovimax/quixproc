@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -19,43 +19,73 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
-
 package com.xmlcalabash.library;
 
-import com.xmlcalabash.util.Base64;
-import com.xmlcalabash.util.TreeWriter;
-import net.sf.saxon.s9api.QName;
-import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.XdmNode;
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.runtime.XAtomicStep;
-import com.xmlcalabash.util.S9apiUtils;
-import com.thaiopensource.validate.SchemaReader;
-import com.thaiopensource.validate.ValidateProperty;
-import com.thaiopensource.validate.ValidationDriver;
-import com.thaiopensource.validate.prop.rng.RngProperty;
-import com.thaiopensource.validate.auto.AutoSchemaReader;
-import com.thaiopensource.validate.rng.CompactSchemaReader;
-import com.thaiopensource.xml.sax.ErrorHandlerImpl;
-import com.thaiopensource.util.PropertyMapBuilder;
-import org.xml.sax.ErrorHandler;
-import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
-import org.xml.sax.SAXParseException;
+/*
+ * ValidateWithRNG.java
+ *
+ * Copyright 2008 Mark Logic Corporation.
+ * All rights reserved.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.URI;
 
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XdmNode;
+
+import org.xml.sax.ErrorHandler;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
+
+import com.thaiopensource.util.PropertyMapBuilder;
+import com.thaiopensource.validate.SchemaReader;
+import com.thaiopensource.validate.ValidateProperty;
+import com.thaiopensource.validate.ValidationDriver;
+import com.thaiopensource.validate.auto.AutoSchemaReader;
+import com.thaiopensource.validate.prop.rng.RngProperty;
+import com.thaiopensource.validate.rng.CompactSchemaReader;
+import com.xmlcalabash.config.JingConfigurer;
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.Base64;
+import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.TreeWriter;
+
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Apr 28, 2009
+ * Time: 8:02:33 AM
+ * To change this template use File | Settings | File Templates.
+ */
 public class ValidateJing extends DefaultStep {
     private static final QName _assert_valid = new QName("", "assert-valid");
     private static final QName _dtd_attribute_values = new QName("", "dtd-attribute-values");
     private static final QName _dtd_id_idref_warnings = new QName("", "dtd-id-idref-warnings");
     private static final QName _encoding = new QName("encoding");
+    private static final QName _line = new QName("line");
+    private static final QName _column = new QName("column");
 
     private ReadablePipe source = null;
     private ReadablePipe schemaSource = null;
@@ -94,6 +124,9 @@ public class ValidateJing extends DefaultStep {
         ErrorHandler eh = new RNGErrorHandler();
         PropertyMapBuilder properties = new PropertyMapBuilder();
         properties.put(ValidateProperty.ERROR_HANDLER, eh);
+        properties.put(ValidateProperty.URI_RESOLVER, runtime.getResolver());
+        properties.put(ValidateProperty.ENTITY_RESOLVER, runtime.getResolver());
+
 
         if (checkIdRefs) {
             RngProperty.CHECK_ID_IDREF.add(properties);
@@ -115,9 +148,11 @@ public class ValidateJing extends DefaultStep {
         }
 
         InputSource schemaInputSource = null;
+        JingConfigurer configurer = runtime.getConfigurer().getJingConfigurer();
 
         if (compact) {
             // Compact syntax
+            configurer.configRNC(properties);
             sr = CompactSchemaReader.getInstance();
 
             // Grotesque hack!
@@ -126,6 +161,7 @@ public class ValidateJing extends DefaultStep {
             schemaInputSource.setSystemId(root.getBaseURI().toASCIIString());
         } else {
             // XML syntax
+            configurer.configRNG(properties);
             sr = new AutoSchemaReader();
             schemaInputSource = S9apiUtils.xdmToInputSource(runtime, schema);
         }
@@ -152,7 +188,7 @@ public class ValidateJing extends DefaultStep {
             throw new XProcException("IO Exception", e);
         }
 
-        result.write(stepContext, doc); // At the moment, we don't get any augmentation
+        result.write(stepContext,doc); // At the moment, we don't get any augmentation
     }
 
     private String compactSchema(XdmNode doc) {
@@ -166,6 +202,8 @@ public class ValidateJing extends DefaultStep {
     }
 
     class RNGErrorHandler implements ErrorHandler {
+        SAXParseException err = null;
+
         public void fatalError(SAXParseException e) throws SAXException {
             error(e);
         }
@@ -174,6 +212,15 @@ public class ValidateJing extends DefaultStep {
             TreeWriter treeWriter = new TreeWriter(runtime);
             treeWriter.startDocument(docBaseURI);
             treeWriter.addStartElement(XProcConstants.c_error);
+
+            if (e.getLineNumber()!=-1) {
+                treeWriter.addAttribute(_line, ""+e.getLineNumber());
+            }
+
+            if (e.getColumnNumber()!=-1) {
+                treeWriter.addAttribute(_column, ""+e.getColumnNumber());
+            }
+
             treeWriter.startContent();
 
             treeWriter.addText(e.toString());
@@ -182,7 +229,9 @@ public class ValidateJing extends DefaultStep {
             treeWriter.endDocument();
 
             step.reportError(treeWriter.getResult());
-            throw e;
+            if (err != null) {
+                err = e;
+            }
         }
 
         public void warning( SAXParseException e ) {

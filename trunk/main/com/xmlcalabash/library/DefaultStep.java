@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -19,33 +19,49 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
+
 package com.xmlcalabash.library;
 
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
+import innovimax.quixproc.codex.util.StepContext;
+import innovimax.quixproc.codex.util.XPathUtils;
+
+import java.util.Hashtable;
+import java.util.Iterator;
+import java.util.Vector;
+import java.util.logging.Logger;
+
+import net.sf.saxon.Configuration;
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.SaxonApiUncheckedException;
+import net.sf.saxon.s9api.Serializer;
+import net.sf.saxon.s9api.XPathCompiler;
+import net.sf.saxon.s9api.XPathExecutable;
+import net.sf.saxon.s9api.XPathSelector;
+import net.sf.saxon.s9api.XdmAtomicValue;
+import net.sf.saxon.s9api.XdmItem;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.trans.XPathException;
+
+import com.xmlcalabash.core.XProcConstants;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.core.XProcStep;
-import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.model.RuntimeValue;
-import com.xmlcalabash.runtime.XStep;
-import net.sf.saxon.s9api.*;
-import net.sf.saxon.Configuration;
-import net.sf.saxon.trans.XPathException;
-
-import java.util.Hashtable;
-import java.util.Vector;
-import java.util.Iterator;
-import java.util.logging.Logger;
-
 import com.xmlcalabash.runtime.XAtomicStep;
 import com.xmlcalabash.util.S9apiUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+// Innovimax: new import
+// Innovimax: new import
 
-import innovimax.quixproc.codex.util.StepContext;  
-import innovimax.quixproc.codex.util.XPathUtils;  
-
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 8, 2008
+ * Time: 7:46:15 AM
+ * To change this template use File | Settings | File Templates.
+ */
 public class DefaultStep implements XProcStep {
     public static final QName _byte_order_mark = new QName("", "byte-order-mark");
     public static final QName _cdata_section_elements = new QName("", "cdata-section-elements");
@@ -69,7 +85,7 @@ public class DefaultStep implements XProcStep {
     protected Logger logger = Logger.getLogger(this.getClass().getName());
 
     //private String logger = null;
-
+    
     // Innovimax: modified constructor
     public DefaultStep(XProcRuntime runtime, XAtomicStep step) {      
         this.runtime = runtime;
@@ -80,6 +96,10 @@ public class DefaultStep implements XProcStep {
           this.stepContext = step.getContext();        
           options = new Hashtable<QName,RuntimeValue> ();        
         }        
+    }    
+
+    public XAtomicStep getStep() {
+        return step;
     }
 
     public void setInput(String port, ReadablePipe pipe) {
@@ -168,9 +188,7 @@ public class DefaultStep implements XProcStep {
     public void finest(XdmNode node, String message) {
         runtime.finest(this, node, message);
     }
-        
-    // Innovimax: replaced/modified by gorun()
-    //public void run() throws SaxonApiException {    
+   
     public void gorun() throws SaxonApiException {
         String type = null;
         if (XProcConstants.NS_XPROC.equals(step.getType().getNamespaceURI())) {
@@ -178,9 +196,9 @@ public class DefaultStep implements XProcStep {
         } else {
             type = step.getType().getClarkName();
         }
-        info(null, "Running " + type + " " + step.getName());
-        runtime.reportStep(step);        
-    }            
+        fine(null, "Running " + type + " " + step.getName());
+        runtime.reportStep(step);     
+    }      
 
     public Serializer makeSerializer() {
         Serializer serializer = new Serializer();
@@ -270,16 +288,18 @@ public class DefaultStep implements XProcStep {
         return serializer;
     }
 
+    // Innovimax: modified function
     public Vector<XdmItem> evaluateXPath(XdmNode doc, Hashtable<String,String> nsBindings, String xpath, Hashtable<QName,RuntimeValue> globals) {
         Vector<XdmItem> results = new Vector<XdmItem> ();
         
         // Innovimax: select xpath functions
-        xpath = XPathUtils.checkFunctions(step, xpath);
+        xpath = XPathUtils.checkFunctions(step, xpath);        
 
         Configuration config = runtime.getProcessor().getUnderlyingConfiguration();
 
         try {
             XPathCompiler xcomp = runtime.getProcessor().newXPathCompiler();
+            xcomp.setBaseURI(step.getNode().getBaseURI());
             // Extension functions are not available here...
 
             for (QName varname : globals.keySet()) {
@@ -354,6 +374,7 @@ public class DefaultStep implements XProcStep {
     
     protected boolean running = false; // Innovimax: new property
     protected boolean streamed = false; // Innovimax: new property
+    protected boolean streamAll = false; // Innovimax: new property
     protected StepContext stepContext = null; // Innovimax: new property    
     
     // Innovimax: new function (not used : to agree XProcRunnable)
@@ -367,5 +388,10 @@ public class DefaultStep implements XProcStep {
     // Innovimax: new function
     public void setStreamed(boolean streamed) {
       this.streamed = streamed;
-    }                
+    }       
+    
+    // Innovimax: new function
+    public void setStreamAll(boolean streamAll) {
+      this.streamAll = streamAll;
+    }       
 }

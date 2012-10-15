@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -24,11 +24,15 @@ package com.xmlcalabash.model;
 
 import java.net.URI;
 
-import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.XdmNode;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcConstants;
 
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcRuntime;
+
+/**
+ *
+ * @author ndw
+ */
 public class Import extends Step {
     URI href = null;
     PipelineLibrary library = null;

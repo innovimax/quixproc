@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,21 +22,21 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.model;
 
-import com.xmlcalabash.core.XProcData;
-import com.xmlcalabash.runtime.XStep;
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.QName;
-import com.xmlcalabash.core.XProcRuntime;
-
-import java.util.Vector;
-import java.util.Hashtable;
+import java.util.Collection;
 import java.util.HashSet;
+import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.XdmNode;
+
 import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcData;
 import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
 
 public class DeclareStep extends CompoundStep {
     protected boolean psviRequired = false;
@@ -164,6 +164,10 @@ public class DeclareStep extends CompoundStep {
             return runtime.getBuiltinDeclaration(type);
         }
     }
+    
+    public Collection<DeclareStep> getStepDeclarations() {
+        return declaredSteps.values();
+    }
 
     public void setupEnvironment() {
         setEnvironment(new Environment(this));
@@ -200,7 +204,12 @@ public class DeclareStep extends CompoundStep {
 
     private int logLevel(Logger logger) {
         Logger log = logger;
-        Level level = log.getLevel();
+        Level level = null;
+
+        if (log != null) {
+            level = log.getLevel();
+        }
+
         while (log != null && level == null) {
             log = log.getParent();
             level = log.getLevel();
@@ -213,7 +222,7 @@ public class DeclareStep extends CompoundStep {
             return level.intValue();
         }
     }
-    
+
     public void setup() {
         XProcRuntime runtime = this.runtime;
         DeclareStep decl = this;
@@ -276,8 +285,8 @@ public class DeclareStep extends CompoundStep {
         }
 
         decl.setupEnvironment();
-        
-        if (!decl.valid()) {        
+
+        if (!decl.valid()) {
             if (logLevel(logger) <= Level.INFO.intValue()) {
                 decl.dump();
             }
@@ -383,7 +392,7 @@ public class DeclareStep extends CompoundStep {
 
         return valid;
     }
-    
+
     protected boolean checkBinding(Input input) {
         boolean valid = true;
 
@@ -467,13 +476,13 @@ public class DeclareStep extends CompoundStep {
 
                 input.addBinding(binding);
             }
-        } else if (input.getParameterInput()) {            
+        } else if (input.getParameterInput()) {
             XProcData data = runtime.getXProcData();
             // If depth==0 then we're on a declare step and you aren't allowed to
             // provide default bindings for parameter input ports.
             if (data.getDepth() == 0 && input.getBinding().size() > 0) {
                 throw XProcException.staticError(35, input.getNode(), "You must not specify bindings in this context.");
-            }            
+            }
         }
 
         for (Binding binding : input.getBinding()) {
@@ -496,6 +505,5 @@ public class DeclareStep extends CompoundStep {
         }
 
         return valid;
-    }    
-    
+    }
 }

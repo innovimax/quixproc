@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,50 +22,74 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.core;
 
-import com.xmlcalabash.util.DefaultXProcMessageListener;
-import com.xmlcalabash.util.StepErrorListener;
-import net.sf.saxon.Configuration;
-import net.sf.saxon.s9api.Processor;
-import net.sf.saxon.s9api.QName;
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.SaxonApiException;
-import com.xmlcalabash.model.Parser;
-import com.xmlcalabash.model.DeclareStep;
-import com.xmlcalabash.model.PipelineLibrary;
-import com.xmlcalabash.util.XProcURIResolver;
-import com.xmlcalabash.util.URIUtils;
-import com.xmlcalabash.util.Reporter;
-import com.xmlcalabash.io.ReadablePipe;  // Innovimax: new import
+import innovimax.quixproc.codex.util.PipedDocument;
+import innovimax.quixproc.codex.util.QConfig;
+import innovimax.quixproc.codex.util.StepContext;
+import innovimax.quixproc.codex.util.Tracing;
+import innovimax.quixproc.codex.util.Waiting;
 
-import java.util.logging.Logger;
-import java.util.Hashtable;
-import java.util.Vector;
-import java.util.GregorianCalendar;
-import java.util.Locale;
 import java.io.FileNotFoundException;
-import java.io.PrintStream;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.URISyntaxException;
-import java.net.URLConnection;
-import java.net.URL;
+import java.lang.reflect.Constructor;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-
-import com.xmlcalabash.runtime.*;
-import com.xmlcalabash.functions.*;
+import java.util.GregorianCalendar;
+import java.util.Hashtable;
+import java.util.Locale;
+import java.util.Vector;
+import java.util.logging.Logger;
 
 import javax.xml.transform.URIResolver;
 
+import net.sf.saxon.Configuration;
+import net.sf.saxon.lib.ExtensionFunctionDefinition;
+import net.sf.saxon.s9api.Processor;
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XdmNode;
+
 import org.apache.commons.httpclient.Cookie;
 import org.xml.sax.EntityResolver;
+import org.xml.sax.InputSource;
 
-import innovimax.quixproc.codex.util.QConfig;
-import innovimax.quixproc.codex.util.Tracing;
-import innovimax.quixproc.codex.util.Waiting;
-import innovimax.quixproc.codex.util.PipedDocument;
+import com.xmlcalabash.config.XProcConfigurer;
+import com.xmlcalabash.functions.BaseURI;
+import com.xmlcalabash.functions.Cwd;
+import com.xmlcalabash.functions.IterationPosition;
+import com.xmlcalabash.functions.IterationSize;
+import com.xmlcalabash.functions.ResolveURI;
+import com.xmlcalabash.functions.StepAvailable;
+import com.xmlcalabash.functions.SystemProperty;
+import com.xmlcalabash.functions.ValueAvailable;
+import com.xmlcalabash.functions.VersionAvailable;
+import com.xmlcalabash.functions.XPathVersionAvailable;
+import com.xmlcalabash.io.ReadableData;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.model.DeclareStep;
+import com.xmlcalabash.model.Parser;
+import com.xmlcalabash.model.PipelineLibrary;
+import com.xmlcalabash.runtime.XLibrary;
+import com.xmlcalabash.runtime.XPipeline;
+import com.xmlcalabash.runtime.XRootStep;
+import com.xmlcalabash.runtime.XStep;
+import com.xmlcalabash.util.DefaultXProcConfigurer;
+import com.xmlcalabash.util.DefaultXProcMessageListener;
+import com.xmlcalabash.util.JSONtoXML;
+import com.xmlcalabash.util.StepErrorListener;
+import com.xmlcalabash.util.URIUtils;
+import com.xmlcalabash.util.XProcURIResolver;
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
+// Innovimax: new import
 
+/**
+ *
+ * @author ndw
+ */
 public class XProcRuntime {
     protected Logger logger = Logger.getLogger("com.xmlcalabash");
     private Processor processor = null;
@@ -73,9 +97,6 @@ public class XProcRuntime {
     private XProcURIResolver uriResolver = null;
     private XProcConfiguration config = null;
     private Vector<XStep> reported = new Vector<XStep> ();
-    private String phoneHomeURL = "http://xproc.org/cgi-bin/phonehome";
-    private boolean phoneHome = true;
-    private Thread phoneHomeThread = null;
     private QName errorCode = null;
     private XdmNode errorNode = null;
     private String errorMessage = null;
@@ -87,16 +108,34 @@ public class XProcRuntime {
     private Hashtable<String,Vector<XdmNode>> collections = null;
     private URI staticBaseURI = null;
     private boolean allowGeneralExpressions = true;
+    private boolean allowXPointerOnText = true;
+    private boolean transparentJSON = false;
+    private String jsonFlavor = JSONtoXML.MARKLOGIC;
+    private boolean useXslt10 = false;
     private XProcData xprocData = null;
     private Logger log = null;
     private XProcMessageListener msgListener = null;
     private PipelineLibrary standardLibrary = null;
     private XLibrary xStandardLibrary = null;
     private Hashtable<String,Vector<Cookie>> cookieHash = new Hashtable<String,Vector<Cookie>> ();
-      
+    private XProcConfigurer configurer = null;
+    private String htmlParser = null;
+
     public XProcRuntime(XProcConfiguration config) {
         this.config = config;
         processor = config.getProcessor();
+
+        if (config.xprocConfigurer != null) {
+            try {
+                String className = config.xprocConfigurer;
+                Constructor constructor = Class.forName(className).getConstructor(XProcRuntime.class);
+                configurer = (XProcConfigurer) constructor.newInstance(this);
+            } catch (Exception e) {
+                throw new XProcException(e);
+            }
+        } else {
+            configurer = new DefaultXProcConfigurer(this);
+        }
 
         xprocData = new XProcData(this);
 
@@ -119,8 +158,8 @@ public class XProcRuntime {
         staticBaseURI = URIUtils.cwdAsURI();
 
         try {
-            if (config.uriResolver != null) {                
-                uriResolver.setUnderlyingURIResolver((URIResolver) Class.forName(config.uriResolver).newInstance());                
+            if (config.uriResolver != null) {
+                uriResolver.setUnderlyingURIResolver((URIResolver) Class.forName(config.uriResolver).newInstance());
             }
             if (config.entityResolver != null) {
                 uriResolver.setUnderlyingEntityResolver((EntityResolver) Class.forName(config.entityResolver).newInstance());
@@ -135,10 +174,30 @@ public class XProcRuntime {
             throw new XProcException(e);
         }
 
+        processor.getUnderlyingConfiguration().setURIResolver(uriResolver);
+
         StepErrorListener errListener = new StepErrorListener(this);
         saxonConfig.setErrorListener(errListener);
 
         allowGeneralExpressions = config.extensionValues;
+        allowXPointerOnText = config.xpointerOnText;
+        transparentJSON = config.transparentJSON;
+        jsonFlavor = config.jsonFlavor;
+        useXslt10 = config.useXslt10;
+
+        for (String className : config.extensionFunctions) {
+            try {
+                ExtensionFunctionDefinition def = (ExtensionFunctionDefinition) Class.forName(className).newInstance();
+                finer(null, null, "Instantiated: " + className);
+                processor.registerExtensionFunction(def);
+            } catch (NoClassDefFoundError ncdfe) {
+                finer(null, null, "Failed to instantiate extension function: " + className);
+            } catch (Exception e) {
+                finer(null, null, "Failed to instantiate extension function: " + className);
+            }
+        }
+
+        htmlParser = config.htmlParser;
 
         reset();
     }
@@ -148,22 +207,30 @@ public class XProcRuntime {
         parser = runtime.parser;
         uriResolver = runtime.uriResolver;
         config = runtime.config;
-        phoneHome = runtime.phoneHome;
         staticBaseURI = runtime.staticBaseURI;
-        allowGeneralExpressions = runtime.allowGeneralExpressions;
+        useXslt10 = runtime.useXslt10;
         log = runtime.log;
         msgListener = runtime.msgListener;
         standardLibrary = runtime.standardLibrary;
         xStandardLibrary = runtime.xStandardLibrary;
         cookieHash = runtime.cookieHash;
+        configurer = runtime.configurer;
+        allowGeneralExpressions = runtime.allowGeneralExpressions;
+        allowXPointerOnText = runtime.allowXPointerOnText;
+        transparentJSON = runtime.transparentJSON;
+        jsonFlavor = runtime.jsonFlavor;
+    }
+
+    public XProcConfigurer getConfigurer() {
+        return configurer;
+    }
+
+    public void setConfigurer(XProcConfigurer configurer) {
+        this.configurer = configurer;
     }
 
     public XProcData getXProcData() {
         return xprocData;
-    }
-
-    public void setPhoneHome(boolean phoneHome) {
-        this.phoneHome = phoneHome;
     }
 
     public boolean getDebug() {
@@ -172,6 +239,22 @@ public class XProcRuntime {
 
     public URI getStaticBaseURI() {
         return staticBaseURI;
+    }
+
+    public String getSendmailHost() {
+        return config.mailHost;
+    }
+
+    public String getSendmailPort() {
+        return config.mailPort;
+    }
+
+    public String getSendmailUsername() {
+        return config.mailUser;
+    }
+
+    public String getSendmailPassword() {
+        return config.mailPass;
     }
 
     public void setURIResolver(URIResolver resolver) {
@@ -217,6 +300,26 @@ public class XProcRuntime {
 
     public boolean getAllowGeneralExpressions() {
         return allowGeneralExpressions;
+    }
+
+    public boolean getAllowXPointerOnText() {
+        return allowXPointerOnText;
+    }
+
+    public boolean transparentJSON() {
+        return transparentJSON;
+    }
+
+    public String jsonFlavor() {
+        return jsonFlavor;
+    }
+
+    public String htmlParser() {
+        return htmlParser;
+    }
+
+    public boolean getUseXslt10Processor() {
+        return useXslt10;
     }
 
     public void cache(XdmNode doc, URI baseURI) {
@@ -267,8 +370,8 @@ public class XProcRuntime {
 
     // Innovimax: modified function
     public String getVendor() {
-        return "Innovimax";
-    }
+        return "innovimax";
+    }    
 
     public String getVendorURI() {
         return "http://xmlcalabash.com/";
@@ -313,16 +416,6 @@ public class XProcRuntime {
 
         xprocData = new XProcData(this);
 
-        String phone = System.getProperty("com.xmlcalabash.phonehome");
-        if (phone != null && ("0".equals(phone) || "no".equals(phone) || "false".equals(phone))) {
-            finest(null, null,"Phonehome suppressed by user.");
-            phoneHome = false;
-        }
-
-        if (phoneHomeURL == null) {
-            phoneHome = false;
-        }
-
         parser = new Parser(this);
         try {
             // FIXME: I should *do* something with these libraries, shouldn't I?
@@ -341,6 +434,14 @@ public class XProcRuntime {
 
     // FIXME: This design sucks
     public XPipeline load(String pipelineURI) throws SaxonApiException {
+        for (String map : config.loaders.keySet()) {
+            boolean data = map.startsWith("data:");
+            String pattern = map.substring(5);
+            if (pipelineURI.matches(pattern)) {
+                return runPipelineLoader(pipelineURI, config.loaders.get(map), data);
+            }
+        }
+
         try {
             return _load(pipelineURI);
         } catch (SaxonApiException sae) {
@@ -354,6 +455,7 @@ public class XProcRuntime {
 
     private XPipeline _load(String pipelineURI) throws SaxonApiException {
         reset();
+        configurer.getXMLCalabashConfigurer().configRuntime(this);
         pipeline = parser.loadPipeline(pipelineURI);
         if (errorCode != null) {
             throw new XProcException(errorCode, errorMessage);
@@ -362,8 +464,6 @@ public class XProcRuntime {
         XRootStep root = new XRootStep(this);
         DeclareStep decl = pipeline.getDeclaration();
         decl.setup();
-
-        phoneHome(decl);
 
         if (errorCode != null) {
             throw new XProcException(errorCode, errorNode, errorMessage);
@@ -393,6 +493,7 @@ public class XProcRuntime {
     }
     private XPipeline _use(XdmNode p_pipeline) throws SaxonApiException {
         reset();
+        configurer.getXMLCalabashConfigurer().configRuntime(this);
         pipeline = parser.usePipeline(p_pipeline);
         if (errorCode != null) {
             throw new XProcException(errorCode, errorMessage);
@@ -401,8 +502,6 @@ public class XProcRuntime {
         XRootStep root = new XRootStep(this);
         DeclareStep decl = pipeline.getDeclaration();
         decl.setup();
-
-        phoneHome(decl);
 
         if (errorCode != null) {
             throw new XProcException(errorCode, errorMessage);
@@ -420,6 +519,14 @@ public class XProcRuntime {
 
     // FIXME: This design sucks
     public XLibrary loadLibrary(String libraryURI) throws SaxonApiException {
+        for (String map : config.loaders.keySet()) {
+            boolean data = map.startsWith("data:");
+            String pattern = map.substring(5);
+            if (libraryURI.matches(pattern)) {
+                return runLibraryLoader(libraryURI, config.loaders.get(map), data);
+            }
+        }
+
         try {
             return _loadLibrary(libraryURI);
         } catch (SaxonApiException sae) {
@@ -475,6 +582,51 @@ public class XProcRuntime {
         return xlibrary;
     }
 
+    private XPipeline runPipelineLoader(String pipelineURI, String loaderURI, boolean data) throws SaxonApiException {
+        XdmNode pipeDoc = runLoader(pipelineURI, loaderURI, data);
+        return use(pipeDoc);
+    }
+
+    private XLibrary runLibraryLoader(String pipelineURI, String loaderURI, boolean data) throws SaxonApiException {
+        XdmNode libDoc = runLoader(pipelineURI, loaderURI, data);
+        return useLibrary(libDoc);
+    }
+    
+    // Innovimax: modified function
+    private XdmNode runLoader(String pipelineURI, String loaderURI, boolean data) throws SaxonApiException {
+        XPipeline loader = null;
+
+        // Innovimax: instantiate step context
+        StepContext stepContext = new StepContext();
+        
+        try {
+            loader = _load(loaderURI);
+        } catch (SaxonApiException sae) {
+            error(sae);
+            throw sae;
+        } catch (XProcException xe) {
+            error(xe);
+            throw xe;
+        }
+
+        XdmNode pipeDoc = null;
+        if (data) {
+            ReadableData rdata = new ReadableData(this, XProcConstants.c_result, getStaticBaseURI().resolve(pipelineURI).toASCIIString(), "text/plain");
+            pipeDoc = rdata.read(stepContext);
+        } else {
+            pipeDoc = parse(pipelineURI, getStaticBaseURI().toASCIIString());
+        }
+
+        loader.clearInputs("source");
+        loader.writeTo("source", pipeDoc);
+        loader.run();
+        ReadablePipe xformed = loader.readFrom("result");
+        pipeDoc = xformed.read(stepContext);
+
+        reset();
+        return pipeDoc;
+    }
+    
     public Processor getProcessor() {
         return processor;        
     }
@@ -484,8 +636,11 @@ public class XProcRuntime {
     }
 
     public XdmNode parse(String uri, String base, boolean validate) {
-        XdmNode doc = uriResolver.parse(uri, base, validate);
-        return doc;
+        return uriResolver.parse(uri, base, validate);
+    }
+
+    public XdmNode parse(InputSource isource) {
+        return uriResolver.parse(isource);
     }
 
     public void declareStep(QName name, DeclareStep step) {
@@ -526,29 +681,6 @@ public class XProcRuntime {
         }
     }
 
-    /*
-    public void makeBuiltinsExplicit() {
-        explicitDeclarations = true;
-    }
-
-    public void clearBuiltins() {
-        if (explicitDeclarations) {
-            throw XProcException.staticError(50);
-        }
-
-        Vector<QName> delete = new Vector<QName> ();
-        for (QName type : declaredSteps.keySet()) {
-            if (XProcConstants.NS_XPROC.equals(type.getNamespaceURI())) {
-                delete.add(type);
-            }
-        }
-
-        for (QName type : delete) {
-            declaredSteps.remove(type);
-        }
-    }
-    */
-    
     public QName getErrorCode() {
         return errorCode;
     }
@@ -580,35 +712,44 @@ public class XProcRuntime {
         msgListener.warning(step, node, message);
     }
 
+    public void warning(Throwable error) {
+        msgListener.warning(error);
+    }
+
+    // Innovimax: modified function
     public void info(XProcRunnable step, XdmNode node, String message) {
         // Innovimax: testing performances
-        if (!qconfig.isTraceAll()) return;      
+        if (!qconfig.isTraceAll()) return;         
         msgListener.info(step, node, message);
     }
 
+    // Innovimax: modified function
     public void fine(XProcRunnable step, XdmNode node, String message) {
         // Innovimax: testing performances
-        if (!qconfig.isTraceAll()) return;      
+        if (!qconfig.isTraceAll()) return;         
         msgListener.fine(step, node, message);
     }
 
+    // Innovimax: modified function
     public void finer(XProcRunnable step, XdmNode node, String message) {
         // Innovimax: testing performances
-        if (!qconfig.isTraceAll()) return;      
+        if (!qconfig.isTraceAll()) return;         
         msgListener.finer(step, node, message);
     }
 
+    // Innovimax: modified function
     public void finest(XProcRunnable step, XdmNode node, String message) {
         // Innovimax: testing performances
-        if (!qconfig.isTraceAll()) return;      
+        if (!qconfig.isTraceAll()) return;         
         msgListener.finest(step, node, message);
     }
 
     // ===========================================================
 
+    // Innovimax: modified function
     public void reportStep(XStep step) {
         // Innovimax: testing performances
-        if (true) return;      
+        if (true) return;         
         reported.add(step);
     }
 
@@ -616,169 +757,6 @@ public class XProcRuntime {
     }
 
     public void finish(XPipeline pipe) {
-        // Innovimax: testing performances
-        if (true) return;      
-        int seconds = 0;
-        try {
-            while (phoneHomeThread != null && phoneHomeThread.isAlive()) {
-                phoneHomeThread.join(1000);
-                seconds++;
-                if (seconds == 4) {
-                    warning(null, null, "Please wait...sending statistics to xproc.org");
-                }
-            }
-        } catch(InterruptedException ie) {
-            // I don't care
-        }
-
-        if (phoneHome) {
-            PhoneHome phone = new PhoneHome(this, reported);
-            phoneHomeThread = new Thread(phone);
-            phoneHomeThread.start();
-        }
-
-        seconds = 0;
-        try {
-            while (phoneHomeThread != null && phoneHomeThread.isAlive()) {
-                phoneHomeThread.join(1000);
-                seconds++;
-                if (seconds == 4) {
-                    warning(null, null, "Please wait...sending statistics to xproc.org");
-                }
-            }
-        } catch(InterruptedException ie) {
-            // I don't care
-        }
-    }
-
-    public void phoneHome(DeclareStep decl) {
-        if (phoneHome) {
-            PhoneHome phone = new PhoneHome(this, decl);
-            phoneHomeThread = new Thread(phone);
-            phoneHomeThread.start();
-        }
-    }
-
-    public void phoneHome(Exception ex) {
-        // We only get here if something went ``wrong; so the earlier thread might still be running
-        int seconds = 0;
-        try {
-            while (phoneHomeThread != null && phoneHomeThread.isAlive()) {
-                phoneHomeThread.join(1000);
-                seconds++;
-                if (seconds == 4) {
-                    warning(null, null, "Please wait...sending statistics to xproc.org");
-                }
-                if (seconds > 16) {
-                    // Give up.
-                    break;
-                }
-            }
-        } catch(InterruptedException ie) {
-            // I don't care
-        }
-
-        if (phoneHome) {
-            PhoneHome phone = new PhoneHome(this, ex);
-            phoneHomeThread = new Thread(phone);
-            phoneHomeThread.start();
-        }
-    }
-
-    private class PhoneHome implements Runnable {
-        private Throwable ex = null;
-        private DeclareStep step = null;
-        private XProcRuntime runtime = null;
-        private Vector<XStep> reported = null;
-
-        public PhoneHome(XProcRuntime runtime, DeclareStep decl) {
-            this.runtime = runtime;
-            step = decl;
-        }
-
-        public PhoneHome(XProcRuntime runtime, Vector<XStep> reported) {
-            this.runtime = runtime;
-            this.reported = reported;
-        }
-
-        public PhoneHome(XProcRuntime runtime, Throwable ex) {
-            this.runtime = runtime;
-            this.ex = ex;
-        }
-
-        public void run() {
-            String email = System.getProperty("com.xmlcalabash.phonehome.email");
-
-            try {
-                URL url = new URL(phoneHomeURL);
-                URLConnection conn = url.openConnection();
-                conn.setDoOutput(true);
-                PrintStream pr = new PrintStream(conn.getOutputStream());
-
-                //String fn = "/tmp/phonehome-pipeline.xml";
-                String gi = "pipeline-report";
-                if (reported != null) {
-                    gi = "runtime-report";
-                    //fn = "/tmp/phonehome-report.xml";
-                }
-                if (ex != null) {
-                    gi = "error-report";
-                    //fn = "/tmp/phonehome-error.xml";
-                }
-
-                //PrintStream pr = new PrintStream(new File(fn));
-
-                pr.println("<" + gi + " xmlns='http://xmlcalabash.com/ns/phonehome'>");
-                if (email != null) {
-                    pr.println("<email>" + email + "</email>");
-                }
-                pr.println("<general-value-extension>" + runtime.allowGeneralExpressions + "</general-value-extension>");
-                pr.println("<version>" + getXProcVersion() + "</version>");
-                pr.println("<product-name>" + getProductName() + "</product-name>");
-                pr.println("<product-version>" + getProductVersion() + "</product-version>");
-                pr.println("<episode>" + getEpisode() + "</episode>");
-
-                if (ex != null) {
-                    while (ex != null) {
-                        pr.println("<failure>" + ex + "</failure>");
-                        ex = ex.getCause();
-                    }
-                }
-
-                if (step != null) {
-                    Reporter reporter = new Reporter(runtime, pr);
-                    reporter.report(step);
-                }
-
-                if (reported != null) {
-                    pr.println("<steps>");
-                    for (XStep step: reported) {
-                        DeclareStep dstep = step.getDeclareStep();
-                        if (dstep != null) {
-                            pr.println("  <step type='" + dstep.getDeclaredType().getClarkName() + "'/>");
-                        } else {
-                            pr.println("  <step className='" + step.getClass().getName() + "'/>");
-                        }
-                    }
-                    pr.println("</steps>");
-                }
-                
-                pr.println("</" + gi + ">");
-                pr.flush();
-
-                // Get the response
-                BufferedReader rd = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                String line;
-                while ((line = rd.readLine()) != null) {
-                    //System.err.println("R: " + line);
-                }
-                rd.close();
-
-                pr.close();
-            } catch (Exception e) {
-                finest(null, null,"Failed to phone home: " + e);
-            }
-        }
     }
     
     //*************************************************************************
@@ -830,12 +808,12 @@ public class XProcRuntime {
     }      
     
     // Innovimax: new function
-    public void startSpying(String[] args) {
-        qconfig.getSpy().start(args);
+    public void startSpying() {
+        qconfig.startSpying();
     }  
     
     // Innovimax: new function
     public void stopSpying() {
-        qconfig.getSpy().stop();
-    }                            
+        qconfig.stopSpying();
+    }           
 }

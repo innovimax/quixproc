@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -19,34 +19,37 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
-
 package com.xmlcalabash.extensions;
+
+import java.io.IOException;
 
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.runtime.XAtomicStep;
-import com.xmlcalabash.util.S9apiUtils;
-import com.xmlcalabash.library.DefaultStep;
-import com.thaiopensource.xml.sax.ErrorHandlerImpl;
-import com.thaiopensource.util.PropertyMapBuilder;
-import com.thaiopensource.validate.ValidateProperty;
-import com.thaiopensource.validate.SchemaReader;
-import com.thaiopensource.validate.ValidationDriver;
-import com.thaiopensource.validate.auto.AutoSchemaReader;
-import com.thaiopensource.validate.rng.CompactSchemaReader;
-import com.thaiopensource.validate.prop.rng.RngProperty;
+
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
-import java.io.StringReader;
-import java.io.IOException;
+import com.thaiopensource.util.PropertyMapBuilder;
+import com.thaiopensource.validate.ValidateProperty;
+import com.thaiopensource.validate.ValidationDriver;
+import com.thaiopensource.validate.prop.rng.RngProperty;
+import com.thaiopensource.xml.sax.ErrorHandlerImpl;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.library.DefaultStep;
+import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.S9apiUtils;
 
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Apr 29, 2009
+ * Time: 6:35:09 PM
+ * To change this template use File | Settings | File Templates.
+ */
 public class NVDL extends DefaultStep {
     private static final QName _assert_valid = new QName("", "assert-valid");
 
@@ -118,6 +121,6 @@ public class NVDL extends DefaultStep {
             throw new XProcException("IO Exception", e);
         }
 
-        result.write(stepContext, srcdoc); // At the moment, we don't get any augmentation
+        result.write(stepContext,srcdoc); // At the moment, we don't get any augmentation
     }
 }

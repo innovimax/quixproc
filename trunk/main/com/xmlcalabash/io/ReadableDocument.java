@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,34 +22,48 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.io;
 
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.SaxonApiException;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.model.Step;
-import com.xmlcalabash.util.XPointer;
-
-import java.io.File;
-import java.io.FileFilter;
-import java.io.IOException;
-import java.util.regex.Pattern;
-import java.util.regex.Matcher;
-import java.util.logging.Logger;
-import java.util.Vector;
-
-
 import innovimax.quixproc.codex.util.PipedDocument;
 import innovimax.quixproc.codex.util.StepContext;
 import innovimax.quixproc.codex.util.shared.ChannelReader;
 import innovimax.quixproc.util.shared.ChannelInit;
 import innovimax.quixproc.util.shared.ChannelPosition;
 
+import java.io.File;
+import java.io.FileFilter;
+import java.io.InputStreamReader;
+import java.net.URI;
+import java.net.URL;
+import java.net.URLConnection;
+import java.util.Vector;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XdmNode;
+
+import org.json.JSONTokener;
+
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.model.Step;
+import com.xmlcalabash.util.JSONtoXML;
+import com.xmlcalabash.util.XPointer;
+// Innovimax: new import  
+// Innovimax: new import  
+// Innovimax: new import  
+// Innovimax: new import  
+// Innovimax: new import  
+
+/**
+ *
+ * @author ndw
+ */
 public class ReadableDocument implements ReadablePipe {
-    private DocumentSequence documents = null;
+    protected DocumentSequence documents = null;
+    protected String uri = null;
+    protected XProcRuntime runtime = null;    
     private String base = null;
-    private String uri = null;
-    private XProcRuntime runtime = null;
-    private XdmNode node = null;
+    private XdmNode node = null;    
     private Step reader = null;
     private Pattern pattern = null;
 
@@ -76,10 +90,10 @@ public class ReadableDocument implements ReadablePipe {
     public void canReadSequence(boolean sequence) {
         // nop; always false
     }
-    
-    public DocumentSequence documents() {
-        return documents;
-    }    
+
+    public boolean readSequence() {
+        return false;
+    }
     
     private class RegexFileFilter implements FileFilter {
         Pattern pattern = null;
@@ -92,8 +106,8 @@ public class ReadableDocument implements ReadablePipe {
             Matcher matcher = pattern.matcher(pathname.getName());
             return matcher.matches();
         }
-    }
-
+    }    
+    
     //*************************************************************************
     //*************************************************************************        
     //*************************************************************************
@@ -102,6 +116,7 @@ public class ReadableDocument implements ReadablePipe {
     //*************************************************************************
     //************************************************************************* 
 
+    private XdmNode doc = null;  // Innovimax: new property     
     private ChannelPosition c_pos = new ChannelPosition();  // Innovimax: new property
     private ChannelInit c_init = new ChannelInit(); // Innovimax: new property    
     private ChannelReader c_reader = new ChannelReader();  // Innovimax: new property    
@@ -116,6 +131,8 @@ public class ReadableDocument implements ReadablePipe {
     // Innovimax: new function
     public void resetReader(StepContext stepContext) {    
         c_pos.reset(stepContext.curChannel);
+        c_init.reset(stepContext.curChannel);        
+        documents.reset(stepContext.curChannel);           
     }        
     
     // Innovimax: new function
@@ -145,6 +162,12 @@ public class ReadableDocument implements ReadablePipe {
         initialize(stepContext);
         return documents.size(stepContext.curChannel);
     }
+    
+    // Innovimax: new function
+    public DocumentSequence documents(StepContext stepContext) {
+        initialize(stepContext);
+        return documents;
+    }     
 
     // Innovimax: new function
     public XdmNode read(StepContext stepContext) throws SaxonApiException {         
@@ -177,66 +200,91 @@ public class ReadableDocument implements ReadablePipe {
     }
     
     // Innovimax: new function
-    private void readDoc(StepContext stepContext) {        
-        runtime.getTracer().debug(null,stepContext,-1,this,null,"    DOCU > LOADING...");          
+    public String sequenceInfos() {        
+        return documents.toString();
+    }       
+    
+    // Innovimax: new function
+    private void readDoc(StepContext stepContext) {  
+        runtime.getTracer().debug(null,stepContext,-1,this,null,"    DOCU > LOADING...");                             
+
+        c_init.close(stepContext.curChannel);  
         
-        XdmNode doc;
-
-        c_init.close(stepContext.curChannel);        
-        if (uri != null) {            
-            try {
-                // What if this is a directory?
-                String fn = uri;
-                if (fn.startsWith("file:")) {
-                    fn = fn.substring(5);
-                    if (fn.startsWith("///")) {
-                        fn = fn.substring(2);
-                    }
-                }
-
-                File f = new File(fn);
-                if (f.isDirectory()) {
-                    if (pattern == null) {
-                        pattern = Pattern.compile("^.*\\.xml$");
-                    }
-                    for (File file : f.listFiles(new RegexFileFilter(pattern))) {
-                        doc = runtime.parse(file.getCanonicalPath(), base);                        
-                        documents.newPipedDocument(stepContext.curChannel,  doc);
-                    }
-                } else {
-                    doc = runtime.parse(uri, base);
-
-                    if (fn.contains("#")) {
-                        int pos = fn.indexOf("#");
-                        String ptr = fn.substring(pos+1);
-
-                        if (ptr.matches("^[\\w]+$")) {
-                            ptr = "element(" + ptr + ")";
-                        }
-
-                        XPointer xptr = new XPointer(ptr);
-                        Vector<XdmNode> nodes = xptr.selectNodes(runtime, doc, xptr.xpathEquivalent(), xptr.xpathNamespaces());
-
-                        if (nodes.size() == 1) {
-                            doc = nodes.get(0);
-                        } else if (nodes.size() != 0) {
-                            throw new XProcException(node, "XPointer matches more than one node!?");
-                        }
-                    }                    
-                    documents.newPipedDocument(stepContext.curChannel, doc);                                                                                      
-                    runtime.getTracer().debug(null,stepContext,-1,this,null,"    DOCU > LOADED");             
-                }
-            } catch (Exception except) {
-                throw XProcException.dynamicError(11, node, except, "Could not read: " + uri);
-            }            
-        } else {
+        if (uri == null) {
             documents.addChannel(stepContext.curChannel); 
-            runtime.getTracer().debug(null,stepContext,-1,this,null,"    DOCU > NOTHING");                                    
+            runtime.getTracer().debug(null,stepContext,-1,this,null,"    DOCU > NOTHING");                
+        } else {
+            if (doc == null) {
+                try {
+                    // What if this is a directory?
+                    String fn = uri;
+                    if (fn.startsWith("file:")) {
+                        fn = fn.substring(5);
+                        if (fn.startsWith("///")) {
+                            fn = fn.substring(2);
+                        }
+                    }    
+                    File f = new File(fn);
+                    if (f.isDirectory()) {
+                        if (pattern == null) {
+                            pattern = Pattern.compile("^.*\\.xml$");
+                        }
+                        for (File file : f.listFiles(new RegexFileFilter(pattern))) {
+                            doc = runtime.parse(file.getCanonicalPath(), base);
+                            documents.newPipedDocument(stepContext.curChannel,  doc);
+                        }
+                    } else {
+                        doc = null;
+                        boolean json = false;    
+                        try {
+                            doc = runtime.parse(uri, base);
+                        } catch (XProcException xe) {
+                            if (runtime.transparentJSON()) {
+                                try {
+                                    URI baseURI = new URI(base);
+                                    URL url = baseURI.resolve(uri).toURL();
+                                    URLConnection conn = url.openConnection();
+                                    InputStreamReader reader = new InputStreamReader(conn.getInputStream());
+                                    JSONTokener jt = new JSONTokener(reader);
+                                    doc = JSONtoXML.convert(runtime.getProcessor(), jt, runtime.jsonFlavor());
+                                    documents.newPipedDocument(stepContext.curChannel,  doc);
+                                    json = true;
+                                } catch (Exception e) {
+                                    throw xe;
+                                }
+                            } else {
+                                throw xe;
+                            }
+                        }
+                        if (!json) {
+                            if (fn.contains("#")) {
+                                int pos = fn.indexOf("#");
+                                String ptr = fn.substring(pos+1);        
+                                if (ptr.matches("^[\\w]+$")) {
+                                    ptr = "element(" + ptr + ")";
+                                }
+                                XPointer xptr = new XPointer(ptr);
+                                Vector<XdmNode> nodes = xptr.selectNodes(runtime, doc);        
+                                if (nodes.size() == 1) {
+                                    doc = nodes.get(0);
+                                } else if (nodes.size() != 0) {
+                                    throw new XProcException(node, "XPointer matches more than one node!?");
+                                }
+                            }                                    
+                        }                        
+                    }
+                } catch (Exception except) {
+                    throw XProcException.dynamicError(11, node, except, "Could not read: " + uri);
+                }
+            }                
+            
+            documents.newPipedDocument(stepContext.curChannel,  doc);
+            runtime.getTracer().debug(null,stepContext,-1,this,null,"    DOCU > LOADED");                                 
         }
         
         // close documents        
-        documents.close(stepContext.curChannel);                            
-    }
+        documents.close(stepContext.curChannel);                 
+    }    
     
     //*************************************************************************
     //*************************************************************************        
@@ -244,10 +292,10 @@ public class ReadableDocument implements ReadablePipe {
     // INNOVIMAX DEPRECATION
     //*************************************************************************
     //*************************************************************************
-    //*************************************************************************  
-/*
+    //*************************************************************************     
+/*    
     private int pos = 0;
-    private boolean readDoc = false;    
+    private boolean readDoc = false;
     
     public void resetReader() {
         pos = 0;
@@ -273,8 +321,12 @@ public class ReadableDocument implements ReadablePipe {
 
     public int documentCount() {
         return documents.size();
-    }    
-    
+    }
+
+    public DocumentSequence documents() {
+        return documents;
+    }
+
     public XdmNode read() throws SaxonApiException {
         if (!readDoc) {
             readDoc();
@@ -289,7 +341,7 @@ public class ReadableDocument implements ReadablePipe {
         return doc;
     }
 
-    private void readDoc() {
+    protected void readDoc() {
         XdmNode doc;
 
         readDoc = true;
@@ -314,7 +366,28 @@ public class ReadableDocument implements ReadablePipe {
                         documents.add(doc);
                     }
                 } else {
-                    doc = runtime.parse(uri, base);
+                    doc = null;
+
+                    try {
+                        doc = runtime.parse(uri, base);
+                    } catch (XProcException xe) {
+                        if (runtime.transparentJSON()) {
+                            try {
+                                URI baseURI = new URI(base);
+                                URL url = baseURI.resolve(uri).toURL();
+                                URLConnection conn = url.openConnection();
+                                InputStreamReader reader = new InputStreamReader(conn.getInputStream());
+                                JSONTokener jt = new JSONTokener(reader);
+                                doc = JSONtoXML.convert(runtime.getProcessor(), jt, runtime.jsonFlavor());
+                                documents.add(doc);
+                                return;
+                            } catch (Exception e) {
+                                throw xe;
+                            }
+                        } else {
+                            throw xe;
+                        }
+                    }
 
                     if (fn.contains("#")) {
                         int pos = fn.indexOf("#");
@@ -325,7 +398,7 @@ public class ReadableDocument implements ReadablePipe {
                         }
 
                         XPointer xptr = new XPointer(ptr);
-                        Vector<XdmNode> nodes = xptr.selectNodes(runtime, doc, xptr.xpathEquivalent(), xptr.xpathNamespaces());
+                        Vector<XdmNode> nodes = xptr.selectNodes(runtime, doc);
 
                         if (nodes.size() == 1) {
                             doc = nodes.get(0);

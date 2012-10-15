@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,52 +22,65 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.library;
 
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.util.S9apiUtils;
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.net.URI;
+import java.util.Vector;
+
+import javax.xml.XMLConstants;
+import javax.xml.transform.ErrorListener;
+import javax.xml.transform.SourceLocator;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.sax.SAXSource;
+import javax.xml.validation.Schema;
+import javax.xml.validation.SchemaFactory;
+import javax.xml.validation.Validator;
+
 import net.sf.saxon.Configuration;
+import net.sf.saxon.Controller;
+import net.sf.saxon.event.PipelineConfiguration;
+import net.sf.saxon.event.Receiver;
+import net.sf.saxon.s9api.Processor;
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.SchemaManager;
+import net.sf.saxon.s9api.SchemaValidator;
+import net.sf.saxon.s9api.XdmDestination;
+import net.sf.saxon.s9api.XdmNode;
+
+import org.xml.sax.ErrorHandler;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
-import net.sf.saxon.s9api.QName;
-import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.SchemaManager;
-import net.sf.saxon.s9api.Processor;
-import net.sf.saxon.s9api.SchemaValidator;
-import net.sf.saxon.s9api.XdmDestination;
-import net.sf.saxon.s9api.XdmSequenceIterator;
-import net.sf.saxon.s9api.Axis;
-import net.sf.saxon.event.PipelineConfiguration;
-import net.sf.saxon.event.Receiver;
-import net.sf.saxon.Controller;
-import net.sf.saxon.om.NodeInfo;
 
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.TreeWriter;
 
-import javax.xml.transform.sax.SAXSource;
-import javax.xml.transform.Source;
-import javax.xml.validation.SchemaFactory;
-import javax.xml.validation.Schema;
-import javax.xml.validation.Validator;
-import javax.xml.XMLConstants;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.util.Vector;
-import java.io.IOException;
-
+/**
+ *
+ * @author ndw
+ */
 public class ValidateWithXSD extends DefaultStep {
     private static final QName _assert_valid = new QName("", "assert-valid");
     private static final QName _mode = new QName("", "mode");
     private static final QName _use_location_hints = new QName("", "use-location-hints");
     private static final QName _try_namespaces = new QName("", "try-namespaces");
+    private static final QName _line = new QName("line");
+    private static final QName _column = new QName("column");
+
     private static final Class [] paramTypes = new Class [] {};
     private ReadablePipe source = null;
     private ReadablePipe schemas = null;
     private WritablePipe result = null;
+    private URI docBaseURI = null;
+    private Throwable validationException = null;
 
     /** Creates a new instance of ValidateWithXSD */
     public ValidateWithXSD(XProcRuntime runtime, XAtomicStep step) {
@@ -105,28 +118,32 @@ public class ValidateWithXSD extends DefaultStep {
     }
 
     public void validateWithSaxonSA(SchemaManager manager) throws SaxonApiException {
-        info(step.getNode(), "Validating with Saxon");
+        fine(step.getNode(), "Validating with Saxon");
 
         Configuration config = runtime.getProcessor().getUnderlyingConfiguration();
+
+        runtime.getConfigurer().getSaxonConfigurer().configXSD(config);
 
         // Saxon 9.2.0.4j introduces a clearSchemaCache method on Configuration.
         // Call it if it's available.
         try {
             Method clearSchemaCache = config.getClass().getMethod("clearSchemaCache", paramTypes);
             clearSchemaCache.invoke(config);
-            finer(step.getNode(), "Cleared schema cache.");
+            finest(step.getNode(), "Cleared schema cache.");
         } catch (NoSuchMethodException nsme) {
             // nop; oh, well
-            finer(step.getNode(), "Cannot reset schema cache.");
+            finest(step.getNode(), "Cannot reset schema cache.");
         } catch (IllegalAccessException nsme) {
             // nop; oh, well
-            finer(step.getNode(), "Cannot reset schema cache.");
+            finest(step.getNode(), "Cannot reset schema cache.");
         } catch (InvocationTargetException nsme) {
             // nop; oh, well
-            finer(step.getNode(), "Cannot reset schema cache.");
+            finest(step.getNode(), "Cannot reset schema cache.");
         }
 
         XdmNode doc = source.read(stepContext);
+        docBaseURI = doc.getBaseURI();
+
         String namespace = S9apiUtils.getDocumentElement(doc).getNodeName().getNamespaceURI();
         boolean tryNamespaces = getOption(_try_namespaces, false) && !"".equals(namespace);
 
@@ -136,7 +153,7 @@ public class ValidateWithXSD extends DefaultStep {
         while (schemas.moreDocuments(stepContext)) {
             XdmNode schemaNode = schemas.read(stepContext);
             String targetNS = schemaNode.getBaseURI().toASCIIString();
-            fine(step.getNode(), "Caching input schema: " + targetNS);
+            finer(step.getNode(), "Caching input schema: " + targetNS);
             if (targetNS.equals(namespace)) {
                 tryNamespaces = false;
             }
@@ -173,6 +190,7 @@ public class ValidateWithXSD extends DefaultStep {
 
         SchemaValidator validator = manager.newSchemaValidator();
         validator.setDestination(destination);
+        validator.setErrorListener(new XSDErrorHandler());
 
         String mode = getOption(_mode, "strict");
         validator.setLax("lax".equals(mode));
@@ -181,8 +199,11 @@ public class ValidateWithXSD extends DefaultStep {
         validator.setUseXsiSchemaLocation(useHints);
         
         try {
-            fine(step.getNode(), "Validating: " + doc.getBaseURI().toASCIIString());
+            finer(step.getNode(), "Validating: " + doc.getBaseURI().toASCIIString());
             validator.validate(new SAXSource(S9apiUtils.xdmToInputSource(runtime, doc)));
+            if (validationException != null) {
+                throw (SaxonApiException) validationException;
+            }
         } catch (SaxonApiException sae) {
             if (getOption(_assert_valid,false)) {
                 throw new XProcException(XProcConstants.stepError(53), sae);
@@ -190,11 +211,11 @@ public class ValidateWithXSD extends DefaultStep {
         }
         
         XdmNode valid = destination.getXdmNode();
-        result.write(stepContext, valid);
+        result.write(stepContext,valid);
     }
 
     private void validateWithXerces() throws SaxonApiException {
-        info(step.getNode(), "Validating with Xerces");
+        fine(step.getNode(), "Validating with Xerces");
 
         Vector<XdmNode> schemaDocuments = new Vector<XdmNode> ();
         while (schemas.moreDocuments(stepContext)) {
@@ -204,21 +225,28 @@ public class ValidateWithXSD extends DefaultStep {
         }
 
         XdmNode doc = source.read(stepContext);
+        docBaseURI = doc.getBaseURI();
 
         try {
             SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+
+            runtime.getConfigurer().getJaxpConfigurer().configSchemaFactory(factory);
 
             XdmNode schemaNode = schemaDocuments.get(0);
             InputSource is = S9apiUtils.xdmToInputSource(runtime, schemaNode);
             is.setSystemId(schemaNode.getBaseURI().toASCIIString());
             Schema schema = factory.newSchema(new SAXSource(is));
             Validator validator = schema.newValidator();
+            validator.setErrorHandler(new XSDErrorHandler());
 
             InputSource docSource = S9apiUtils.xdmToInputSource(runtime, doc);
             docSource.setSystemId(doc.getBaseURI().toASCIIString());
 
             try {
                 validator.validate(new SAXSource(docSource));
+                if (validationException != null) {
+                    throw (SAXParseException) validationException;
+                }
             } catch (SAXParseException spe) {
                 if (getOption(_assert_valid, false)) {
                     throw new XProcException(XProcConstants.stepError(53), spe);
@@ -230,8 +258,90 @@ public class ValidateWithXSD extends DefaultStep {
             throw new XProcException(ioe);
         }
 
-        result.write(stepContext, doc);
+        result.write(stepContext,doc);
     }
 
+    class XSDErrorHandler implements ErrorHandler, ErrorListener {
+        @Override
+        public void fatalError(SAXParseException e) throws SAXException {
+            error(e);
+        }
+
+        @Override
+        public void error(SAXParseException e) throws SAXException {
+            TreeWriter treeWriter = new TreeWriter(runtime);
+            treeWriter.startDocument(docBaseURI);
+            treeWriter.addStartElement(XProcConstants.c_error);
+
+            if (e.getLineNumber()!=-1) {
+                treeWriter.addAttribute(_line, ""+e.getLineNumber());
+            }
+
+            if (e.getColumnNumber()!=-1) {
+                treeWriter.addAttribute(_column, ""+e.getColumnNumber());
+            }
+
+            treeWriter.startContent();
+
+            treeWriter.addText(e.toString());
+
+            treeWriter.addEndElement();
+            treeWriter.addText("\n");
+            treeWriter.endDocument();
+
+            step.reportError(treeWriter.getResult());
+
+            if (validationException == null) {
+                validationException = e;
+            }
+        }
+
+        @Override
+        public void warning( SAXParseException e ) {
+            // ignore warnings
+        }
+
+        @Override
+        public void warning(TransformerException e) throws TransformerException {
+            // Ignore warnings?
+        }
+
+        @Override
+        public void error(TransformerException e) throws TransformerException {
+            TreeWriter treeWriter = new TreeWriter(runtime);
+            treeWriter.startDocument(docBaseURI);
+            treeWriter.addStartElement(XProcConstants.c_error);
+
+            SourceLocator loc = e.getLocator();
+            if (loc != null) {
+                if (loc.getLineNumber() != -1) {
+                    treeWriter.addAttribute(_line, ""+loc.getLineNumber());
+                }
+
+                if (loc.getColumnNumber() != -1) {
+                    treeWriter.addAttribute(_column, ""+loc.getColumnNumber());
+                }
+            }
+
+            treeWriter.startContent();
+
+            treeWriter.addText(e.toString());
+
+            treeWriter.addEndElement();
+            treeWriter.addText("\n");
+            treeWriter.endDocument();
+
+            step.reportError(treeWriter.getResult());
+
+            if (validationException == null) {
+                validationException = e;
+            }
+        }
+
+        @Override
+        public void fatalError(TransformerException e) throws TransformerException {
+            error(e);
+        }
+    }
 }
 

@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,16 +22,21 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.library;
 
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+
 import com.xmlcalabash.core.XProcConstants;
 import com.xmlcalabash.core.XProcException;
 import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.runtime.XAtomicStep;
 import com.xmlcalabash.util.TreeWriter;
 import com.xmlcalabash.util.TypeUtils;
-import com.xmlcalabash.io.WritablePipe;
-import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.QName;
-import com.xmlcalabash.runtime.XAtomicStep;
 
+/**
+ *
+ * @author ndw
+ */
 public class WWWFormURLDecode extends DefaultStep {
     public static final QName _value = new QName("", "value");
     public static final QName _name = new QName("", "name");
@@ -88,7 +93,7 @@ public class WWWFormURLDecode extends DefaultStep {
 
         tree.addEndElement();
         tree.endDocument();
-        result.write(stepContext, tree.getResult());
+        result.write(stepContext,tree.getResult());
     }
 
     private String decode(String val) {

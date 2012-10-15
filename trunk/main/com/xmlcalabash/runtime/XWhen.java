@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -21,19 +21,33 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package com.xmlcalabash.runtime;
 
-import com.xmlcalabash.core.XProcRuntime;
+import innovimax.quixproc.codex.util.DocumentCollector;
+
+import java.util.Hashtable;
+import java.util.Vector;
+
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XdmAtomicValue;
+import net.sf.saxon.s9api.XdmItem;
+import net.sf.saxon.s9api.XdmNode;
+
 import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
 import com.xmlcalabash.io.ReadablePipe;
 import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.model.*;
-import net.sf.saxon.s9api.*;
+import com.xmlcalabash.model.NamespaceBinding;
+import com.xmlcalabash.model.RuntimeValue;
+import com.xmlcalabash.model.Step;
+import com.xmlcalabash.model.When;
 
-import java.util.Vector;
-import java.util.Hashtable;
-
- 
-import innovimax.quixproc.codex.util.DocumentCollector; 
-
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 13, 2008
+ * Time: 4:57:48 PM
+ * To change this template use File | Settings | File Templates.
+ */
 public class XWhen extends XCompoundStep {
     public XWhen(XProcRuntime runtime, Step step, XCompoundStep parent) {
           super(runtime, step, parent);
@@ -44,35 +58,28 @@ public class XWhen extends XCompoundStep {
         XdmNode doc = null;
         NamespaceBinding nsbinding = new NamespaceBinding(runtime, step.getNode());
         Hashtable<QName,RuntimeValue> globals = parent.getInScopeOptions();
-        
+
         ReadablePipe reader = inputs.get("#xpath-context").firstElement();
         doc = reader.read(stepContext);
 
-        if (reader.moreDocuments(stepContext) || inputs.get("#xpath-context").size() > 1) {            
+        if (reader.moreDocuments(stepContext) || inputs.get("#xpath-context").size() > 1) {
             throw XProcException.dynamicError(5);
         }
-                
-        Vector<XdmItem> results = evaluateXPath(doc, nsbinding.getNamespaceBindings(), testExpr, globals);        
 
-        if (results.size() > 1) {
-            return true;
-        }
-        if (results.size() == 0) {
-            return false;
+        // Surround testExpr with "boolean()" to force the EBV.
+        Vector<XdmItem> results = evaluateXPath(doc, nsbinding.getNamespaceBindings(), "boolean(" + testExpr + ")", globals);
+
+        if (results.size() != 1) {
+            throw new XProcException("Attempt to compute EBV in p:when did not return a singleton!?");
         }
 
-        XdmItem item = results.get(0);
-
-        if (item.isAtomicValue()) {
-            return ((XdmAtomicValue) item).getBooleanValue();
-        } else {
-            return true;
-        }
+        XdmAtomicValue value = (XdmAtomicValue) results.get(0);
+        return value.getBooleanValue();
     }
 
     // Innovimax: modified function
     protected void copyInputs() throws SaxonApiException {
-        // Innovimax: collect inputs
+        // Innovimax: collect inputs      
         /*for (String port : inputs.keySet()) {
             if (!port.startsWith("|") && !"#xpath-context".equals(port)) {
             String wport = port + "|";
@@ -80,12 +87,12 @@ public class XWhen extends XCompoundStep {
                 for (ReadablePipe reader : inputs.get(port)) {
                     while (reader.moreDocuments(stepContext)) {
                         XdmNode doc = reader.read(stepContext);
-                        pipe.write(stepContext, doc);
+                        pipe.write(stepContext,doc);
                         finest(step.getNode(), "Compound input copy from " + reader + " to " + pipe);
                     }
                 }
             }
-        }*/        
+        }*/
         for (String port : inputs.keySet()) {            
             if (!port.startsWith("|") && !"#xpath-context".equals(port) && inputs.get(port).size() > 0) {
                 String wport = port + "|";
@@ -95,8 +102,8 @@ public class XWhen extends XCompoundStep {
                 runtime.getTracer().debug(this,null,-1,null,null,"  COMPOUND > RUN COLLECT-INPUT THREAD '"+wport+"'");
                 t.start();                       
             }
-        }          
-    }    
+        }         
+    }   
     
     //*************************************************************************
     //*************************************************************************        
@@ -111,5 +118,6 @@ public class XWhen extends XCompoundStep {
         XWhen clone = new XWhen(runtime, step, parent);
         super.cloneStep(clone);       
         return clone;
-    }          
+    }      
+     
 }

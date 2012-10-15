@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,24 +22,38 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.io;
 
-import java.util.Vector;
-import java.util.HashSet;
-import java.util.logging.Logger;
-
-import net.sf.saxon.s9api.*;
-import com.xmlcalabash.util.S9apiUtils;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.model.Step;
-
-
 import innovimax.quixproc.codex.util.PipedDocument;
-import innovimax.quixproc.codex.util.shared.ChannelReader;
 import innovimax.quixproc.codex.util.StepContext;
+import innovimax.quixproc.codex.util.shared.ChannelReader;
 import innovimax.quixproc.util.shared.ChannelInit;
 import innovimax.quixproc.util.shared.ChannelPosition;
 
-public class ReadableInline implements ReadablePipe {
+import java.net.URI;
+import java.util.HashSet;
+import java.util.Vector;
+
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XdmDestination;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.s9api.XdmNodeKind;
+import net.sf.saxon.s9api.XdmValue;
+
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.model.Step;
+import com.xmlcalabash.util.S9apiUtils;
+// Innovimax: new import  
+// Innovimax: new import  
+// Innovimax: new import  
+// Innovimax: new import  
+// Innovimax: new import  
+
+/**
+ *
+ * @author ndw
+ */
+public class ReadableInline implements ReadablePipe {    
     private XProcRuntime runtime = null;
     private DocumentSequence documents = null;
     private boolean readSeqOk = false;    
@@ -56,20 +70,20 @@ public class ReadableInline implements ReadablePipe {
         
         // Innovimax: properties required for stream mode
         this.nodes = nodes;
-        this.excludeNS = excludeNS;       
+        this.excludeNS = excludeNS;            
     }
-
+    
     public void canReadSequence(boolean sequence) {
         readSeqOk = sequence;
     }
-    
-    public DocumentSequence documents() {
-        return documents;
-    }    
 
+    public boolean readSequence() {
+        return readSeqOk;
+    }
+    
     public String toString() {
         return "readableinline " + documents;
-    }    
+    }
     
     //*************************************************************************
     //*************************************************************************        
@@ -79,6 +93,7 @@ public class ReadableInline implements ReadablePipe {
     //*************************************************************************
     //************************************************************************* 
 
+    private XdmNode doc = null;  // Innovimax: new property
     private ChannelPosition c_pos = new ChannelPosition();  // Innovimax: new property
     private ChannelInit c_init = new ChannelInit(); // Innovimax: new property    
     private ChannelReader c_reader = new ChannelReader();  // Innovimax: new property  
@@ -94,7 +109,9 @@ public class ReadableInline implements ReadablePipe {
         
     // Innovimax: new function
     public void resetReader(StepContext stepContext) {
-        c_pos.reset(stepContext.curChannel);
+        c_pos.reset(stepContext.curChannel);        
+        c_init.reset(stepContext.curChannel);        
+        documents.reset(stepContext.curChannel);        
     }   
     
     // Innovimax: new function
@@ -123,7 +140,14 @@ public class ReadableInline implements ReadablePipe {
     public int documentCount(StepContext stepContext) {        
         initialize(stepContext);
         return documents.size(stepContext.curChannel);
-    }       
+    }    
+    
+    // Innovimax: new function
+    public DocumentSequence documents(StepContext stepContext) {
+        initialize(stepContext);
+        return documents;
+    }        
+      
 
     // Innovimax: new function
     public XdmNode read(StepContext stepContext) throws SaxonApiException {         
@@ -156,40 +180,62 @@ public class ReadableInline implements ReadablePipe {
     }
     
     // Innovimax: new function
+    public String sequenceInfos() {        
+        return documents.toString();
+    }     
+    
+    // Innovimax: new function
     private void readInline(StepContext stepContext) { 
         runtime.getTracer().debug(null,stepContext,-1,this,null,"    INLI > LOADING...");           
         
         c_init.close(stepContext.curChannel);
         
-        XdmDestination dest = new XdmDestination();        
-        
-        // Find the document element so we can get the base URI
-        XdmNode node = null;
-        for (int pos = 0; pos < nodes.size() && node == null; pos++) {
-            if (((XdmNode) nodes.get(pos)).getNodeKind() == XdmNodeKind.ELEMENT) {
-                node = (XdmNode) nodes.get(pos);
+        if (doc == null) {                  
+            XdmDestination dest = new XdmDestination();
+            XdmNode p_inline = null;
+    
+            if (nodes.size() > 0) {
+                p_inline = ((XdmNode) nodes.get(0)).getParent();
             }
+    
+            // Find the document element so we can get the base URI
+            XdmNode node = null;
+            for (int pos = 0; pos < nodes.size() && node == null; pos++) {
+                if (((XdmNode) nodes.get(pos)).getNodeKind() == XdmNodeKind.ELEMENT) {
+                    node = (XdmNode) nodes.get(pos);
+                }
+            }
+    
+            if (node == null) {
+                throw XProcException.dynamicError(1, p_inline, "Invalid inline content");
+            }
+    
+            // If the document element of the inline document has a relative xml:base, then we have
+            // to be careful *not* to resolve it now. Otherwise, it'll get resolved *twice* if someone
+            // calls p:make-absolute-uris on it.
+            URI baseURI = null;
+            if (node.getAttributeValue(XProcConstants.xml_base) == null) {
+                baseURI = node.getBaseURI();
+            } else {
+                baseURI = node.getParent().getBaseURI();
+            }
+    
+            try {
+                S9apiUtils.writeXdmValue(runtime, nodes, dest, baseURI);
+                doc = dest.getXdmNode();    
+                doc = S9apiUtils.removeNamespaces(runtime, doc, excludeNS, true);
+                runtime.finest(null, null, "Instantiate a ReadableInline");             
+            } catch (SaxonApiException sae) {
+                throw new XProcException(sae);
+            }        
         }
-
-        if (node == null) {
-            throw XProcException.dynamicError(1);
-        }
-
-        try {
-            S9apiUtils.writeXdmValue(runtime, nodes, dest, node.getBaseURI());
-            XdmNode doc = dest.getXdmNode();
-
-            doc = S9apiUtils.removeNamespaces(runtime, doc, excludeNS);
-            runtime.finest(null, null, "Instantiate a ReadableInline");            
-            documents.newPipedDocument(stepContext.curChannel, doc);
-        } catch (SaxonApiException sae) {
-            throw new XProcException(sae);
-        }
+        
+        documents.newPipedDocument(stepContext.curChannel, doc);
         
         // close documents
         documents.close(stepContext.curChannel);
-        runtime.getTracer().debug(null,stepContext,-1,this,null,"    INLI > LOADED");              
-    }   
+        runtime.getTracer().debug(null,stepContext,-1,this,null,"    INLI > LOADED");           
+    }
     
     //*************************************************************************
     //*************************************************************************        
@@ -197,38 +243,11 @@ public class ReadableInline implements ReadablePipe {
     // INNOVIMAX DEPRECATION
     //*************************************************************************
     //*************************************************************************
-    //*************************************************************************  
-/*   
-    private Logger logger = Logger.getLogger(this.getClass().getName());    
+    //*************************************************************************                         
+/*    
+    private Logger logger = Logger.getLogger(this.getClass().getName());
     private int pos = 0;
     
-    private void readInline() { 
-        XdmDestination dest = new XdmDestination();
-
-        // Find the document element so we can get the base URI
-        XdmNode node = null;
-        for (int pos = 0; pos < nodes.size() && node == null; pos++) {
-            if (((XdmNode) nodes.get(pos)).getNodeKind() == XdmNodeKind.ELEMENT) {
-                node = (XdmNode) nodes.get(pos);
-            }
-        }
-
-        if (node == null) {
-            throw XProcException.dynamicError(1);
-        }
-
-        try {
-            S9apiUtils.writeXdmValue(runtime, nodes, dest, node.getBaseURI());
-            XdmNode doc = dest.getXdmNode();
-
-            doc = S9apiUtils.removeNamespaces(runtime, doc, excludeNS);
-            runtime.finest(null, null, "Instantiate a ReadableInline");
-            documents.add(doc);
-        } catch (SaxonApiException sae) {
-            throw new XProcException(sae);
-        }    
-    }
-         
     public void resetReader() {
         pos = 0;
     }
@@ -245,6 +264,10 @@ public class ReadableInline implements ReadablePipe {
         return documents.size();
     }
 
+    public DocumentSequence documents() {
+        return documents;
+    }
+
     public void setReader(Step step) {
         reader = step;
     }
@@ -257,6 +280,48 @@ public class ReadableInline implements ReadablePipe {
         }
         
         return doc;
+    }
+
+    private void readInline() {         
+        XdmDestination dest = new XdmDestination();
+        XdmNode p_inline = null;
+
+        if (nodes.size() > 0) {
+            p_inline = ((XdmNode) nodes.get(pos)).getParent();
+        }
+
+        // Find the document element so we can get the base URI
+        XdmNode node = null;
+        for (int pos = 0; pos < nodes.size() && node == null; pos++) {
+            if (((XdmNode) nodes.get(pos)).getNodeKind() == XdmNodeKind.ELEMENT) {
+                node = (XdmNode) nodes.get(pos);
+            }
+        }
+
+        if (node == null) {
+            throw XProcException.dynamicError(1, p_inline, "Invalid inline content");
+        }
+
+        // If the document element of the inline document has a relative xml:base, then we have
+        // to be careful *not* to resolve it now. Otherwise, it'll get resolved *twice* if someone
+        // calls p:make-absolute-uris on it.
+        URI baseURI = null;
+        if (node.getAttributeValue(XProcConstants.xml_base) == null) {
+            baseURI = node.getBaseURI();
+        } else {
+            baseURI = node.getParent().getBaseURI();
+        }
+
+        try {
+            S9apiUtils.writeXdmValue(runtime, nodes, dest, baseURI);
+            XdmNode doc = dest.getXdmNode();
+
+            doc = S9apiUtils.removeNamespaces(runtime, doc, excludeNS, true);
+            runtime.finest(null, null, "Instantiate a ReadableInline");
+            documents.add(doc);
+        } catch (SaxonApiException sae) {
+            throw new XProcException(sae);
+        }
     }
 */
 }

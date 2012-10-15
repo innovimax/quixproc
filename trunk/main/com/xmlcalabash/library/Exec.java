@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,40 +22,41 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.library;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
-import java.util.regex.Pattern;
 import java.util.regex.Matcher;
-import java.io.OutputStream;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.File;
+import java.util.regex.Pattern;
 
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.util.TreeWriter;
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.runtime.XAtomicStep;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.core.XProcException;
-
-import javax.xml.transform.Source;
-import javax.xml.transform.sax.SAXSource;
-
-import org.xml.sax.InputSource;
+import net.sf.saxon.s9api.Processor;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.Serializer;
-import net.sf.saxon.s9api.Processor;
 import net.sf.saxon.s9api.XQueryCompiler;
-import net.sf.saxon.s9api.XQueryExecutable;
 import net.sf.saxon.s9api.XQueryEvaluator;
-import net.sf.saxon.s9api.DocumentBuilder;
+import net.sf.saxon.s9api.XQueryExecutable;
 import net.sf.saxon.s9api.XdmNode;
 
+import org.xml.sax.InputSource;
+
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.TreeWriter;
+
+/**
+ *
+ * @author ndw
+ */
 public class Exec extends DefaultStep {
     private static final QName c_result = new QName("c", XProcConstants.NS_XPROC_STEP, "result");
     private static final QName c_line = new QName("c", XProcConstants.NS_XPROC_STEP, "line");
@@ -186,7 +187,7 @@ public class Exec extends DefaultStep {
                 builder.directory(new File(cwd));
             }
 
-            info(step.getNode(), "Exec: " + showCmd);
+            fine(step.getNode(), "Exec: " + showCmd);
 
             Process process = builder.start();
 
@@ -222,6 +223,9 @@ public class Exec extends DefaultStep {
                 xqeval.run();
 
                 os.close();
+            } else {
+                OutputStream os = process.getOutputStream();
+                os.close();
             }
 
             boolean showStderr = !"false".equals(step.getExtensionAttribute(cx_show_stderr));
@@ -254,10 +258,14 @@ public class Exec extends DefaultStep {
             tree.addText("" + rc);
             tree.addEndElement();
             tree.endDocument();
-            status.write(stepContext, tree.getResult());
+            XdmNode execResult = tree.getResult();
+            status.write(stepContext,execResult);
 
-            result.write(stepContext, stdoutReader.getResult());
-            errors.write(stepContext, stderrReader.getResult());
+            execResult = stdoutReader.getResult();
+            result.write(stepContext,execResult);
+
+            execResult = stderrReader.getResult();
+            errors.write(stepContext,execResult);
         } catch (IOException ex) {
             throw new XProcException(ex);
         }
@@ -342,17 +350,7 @@ public class Exec extends DefaultStep {
             tree.startContent();
 
             if (asXML) {
-                Source source = new SAXSource(new InputSource(is));
-                DocumentBuilder docbuilder = runtime.getProcessor().newDocumentBuilder();
-                docbuilder.setLineNumbering(true);
-
-                XdmNode doc;
-                try {
-                    doc = docbuilder.build(source);
-                } catch (SaxonApiException sae) {
-                    throw new XProcException(XProcConstants.dynamicError(11), sae);
-                }
-
+                XdmNode doc = runtime.parse(new InputSource(is));
                 tree.addSubtree(doc);
             } else {
                 // If we're not wrapping the lines, a buffered reader doesn't work. It can't

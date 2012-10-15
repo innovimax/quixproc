@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -24,17 +24,21 @@ package com.xmlcalabash.library;
 
 import java.net.URI;
 
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcConstants;
+import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.QName;
 
-import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.WritablePipe;
 import com.xmlcalabash.model.RuntimeValue;
+import com.xmlcalabash.runtime.XAtomicStep;
 
+/**
+ *
+ * @author ndw
+ */
 public class Load extends DefaultStep {
     protected static final String logger = "org.xproc.library.load";
     private static final QName _href = new QName("href");
@@ -62,32 +66,39 @@ public class Load extends DefaultStep {
     // Innovimax: modified function
     public void gorun() throws SaxonApiException {
         super.gorun();
-        
-        RuntimeValue href = getOption(_href);
-        // Innovimax: external base uri
-        //String baseURI = href.getBaseURI().toASCIIString();        
-        String baseURI = runtime.getQConfig().getBaseURI(href.getBaseURI()).toASCIIString();         
-        
+                
+        // Innovimax: external base uri                    
+        boolean validate = getOption(_dtd_validate, false);
+        RuntimeValue href = getOption(_href);            
+        String baseURI = runtime.getQConfig().getBaseURI(href.getBaseURI()).toASCIIString();                     
         if (runtime.getSafeMode() && baseURI.startsWith("file:")) {
             throw XProcException.dynamicError(21);
-        }
+        }        
         
         // Innovimax: statistics                                  
         URI hrefURI = runtime.getQConfig().resolveURI(href.getBaseURI(), href.getString()); 
         java.io.File input = new java.io.File(hrefURI);          
         if (input.exists()) { totalFileSize += input.length(); }          
-        
-        boolean validate = getOption(_dtd_validate, false);
+
         try {
-            XdmNode doc = runtime.parse(href.getString(), baseURI, validate);            
-            result.write(stepContext, doc);
-        } catch (XProcException e) {            
-            e.printStackTrace();
+            // Innovimax: external base uri            
+            //XdmNode doc = runtime.getConfigurer().getXMLCalabashConfigurer().loadDocument(this);
+            XdmNode doc = runtime.parse(href.getString(), baseURI, validate);                       
+                                  
+            result.write(stepContext,doc);
+        } catch (XProcException e) {
+            if (runtime.getDebug()) {
+                e.printStackTrace();
+            }
             if (err_XD0011.equals(e.getErrorCode())) {
+                // Innovimax: external base uri   
+                //RuntimeValue href = getOption(_href);
+                //String baseURI = href.getBaseURI().toASCIIString();
+                //boolean validate = getOption(_dtd_validate, false);
                 throw XProcException.stepError(11, "Could not load " + href.getString() + " (" + baseURI + ") dtd-validate=" + validate);
             }
             throw e;
-        } catch (Exception e) {            
+        } catch (Exception e) {
             throw new XProcException(e);
         }
     }
@@ -104,6 +115,6 @@ public class Load extends DefaultStep {
     private static long totalFileSize = 0;              
     public static long getTotalFileSize() { return totalFileSize; }     
     public static void resetTotalFileSize() { totalFileSize = 0; }  
-        
+            
 }
 

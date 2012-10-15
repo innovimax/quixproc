@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -54,13 +54,15 @@ public class Identity extends DefaultStep {
     }      
    
     public void gorun() {    
-        try {                        
-            out = result.newPipedDocument(stepContext.curChannel);             
-            EventReader evr = new EventReader(source.readAsStream(stepContext), null);   
-            while (evr.hasEvent()) {
-              out.append(evr.nextEvent()); 
-            }                        
-            out.close();                                                       
+        try {                   
+            while (source.moreDocuments(stepContext)) {             
+              out = result.newPipedDocument(stepContext.curChannel);            
+              EventReader evr = new EventReader(source.readAsStream(stepContext), null);   
+              while (evr.hasEvent()) {
+                out.append(evr.nextEvent()); 
+              }
+              out.close();   
+            }                                                
         }         
         catch (Exception e) {            
             throw new XProcException(e);      

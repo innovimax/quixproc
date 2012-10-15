@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -26,41 +26,55 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Hashtable;
 import java.util.Vector;
-import javax.xml.transform.Result;
-import javax.xml.transform.TransformerException;
 
-import com.xmlcalabash.core.XProcException;
-import com.xmlcalabash.core.XProcRuntime;
-import com.xmlcalabash.core.XProcConstants;
-import com.xmlcalabash.io.ReadablePipe;
-import com.xmlcalabash.io.WritablePipe;
-import com.xmlcalabash.model.RuntimeValue;
-import com.xmlcalabash.util.TreeWriter;
-import com.xmlcalabash.util.CollectionResolver;
-import com.xmlcalabash.util.S9apiUtils;
+import javax.xml.transform.Result;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMResult;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.sax.SAXSource;
+
 import net.sf.saxon.Configuration;
+import net.sf.saxon.event.Receiver;
 import net.sf.saxon.lib.CollectionURIResolver;
 import net.sf.saxon.lib.OutputURIResolver;
+import net.sf.saxon.s9api.DocumentBuilder;
+import net.sf.saxon.s9api.MessageListener;
+import net.sf.saxon.s9api.Processor;
 import net.sf.saxon.s9api.QName;
-import net.sf.saxon.s9api.XdmDestination;
 import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.ValidationMode;
+import net.sf.saxon.s9api.XdmAtomicValue;
+import net.sf.saxon.s9api.XdmDestination;
 import net.sf.saxon.s9api.XdmNode;
 import net.sf.saxon.s9api.XsltCompiler;
 import net.sf.saxon.s9api.XsltExecutable;
 import net.sf.saxon.s9api.XsltTransformer;
-import net.sf.saxon.s9api.XdmAtomicValue;
-import net.sf.saxon.s9api.MessageListener;
-import net.sf.saxon.s9api.ValidationMode;
-import net.sf.saxon.s9api.Processor;
-import net.sf.saxon.event.Receiver;
-import com.xmlcalabash.runtime.XAtomicStep;
 
+import org.xml.sax.InputSource;
+
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.ReadablePipe;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.model.RuntimeValue;
+import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.CollectionResolver;
+import com.xmlcalabash.util.S9apiUtils;
+import com.xmlcalabash.util.TreeWriter;
+
+/**
+ *
+ * @author ndw
+ */
 public class XSLT extends DefaultStep {
     private static final QName _initial_mode = new QName("", "initial-mode");
     private static final QName _template_name = new QName("", "template-name");
     private static final QName _output_base_uri = new QName("", "output-base-uri");
     private static final QName _version = new QName("", "version");
-    // FIXME: doesn't support sequence input yet!
     private ReadablePipe sourcePipe = null;
     private ReadablePipe stylesheetPipe = null;
     private WritablePipe resultPipe = null;
@@ -135,12 +149,21 @@ public class XSLT extends DefaultStep {
             version = getOption(_version).getString();
         }
         
-        if (!"1.0".equals(version) && !"2.0".equals(version)) {
-            throw XProcException.stepError(38, "XSLT version '" + version + "' is not supported.");
+        if ("3.0".equals(version) && Configuration.softwareEdition.toLowerCase().equals("he")) {
+            throw XProcException.stepError(38, "XSLT version '" + version + "' is not supported (Saxon PE or EE processor required).");
         }
+        
+        // We used to check if the XSLT version was supported, but I've removed that check.
+        // If it's not supported by Saxon, we'll get an error from Saxon. Otherwise, we'll
+        // get the results we get.
 
         if ("1.0".equals(version) && defaultCollection.size() > 1) {
             throw XProcException.stepError(39);
+        }
+        
+        if ("1.0".equals(version) && runtime.getUseXslt10Processor()) {
+            run10(stylesheet, document);
+            return;
         }
 
         QName initialMode = null;
@@ -165,6 +188,8 @@ public class XSLT extends DefaultStep {
         Processor processor = runtime.getProcessor();
         Configuration config = processor.getUnderlyingConfiguration();
 
+        runtime.getConfigurer().getSaxonConfigurer().configXSLT(config);
+
         OutputURIResolver uriResolver = config.getOutputURIResolver();
         CollectionURIResolver collectionResolver = config.getCollectionURIResolver();
 
@@ -175,9 +200,6 @@ public class XSLT extends DefaultStep {
         compiler.setSchemaAware(processor.isSchemaAware());
         XsltExecutable exec = compiler.compile(stylesheet.asSource());
         XsltTransformer transformer = exec.load();
-
-        // NDW debugging, ignore this
-        // transformer.getUnderlyingController().setBaseOutputURI("http://example.com/");
 
         for (QName name : params.keySet()) {
             RuntimeValue v = params.get(name);
@@ -214,9 +236,56 @@ public class XSLT extends DefaultStep {
         config.setCollectionURIResolver(collectionResolver);
 
         XdmNode xformed = result.getXdmNode();
+
+        // Can be null when nothing is written to the principle result tree...
         if (xformed != null) {
+            if (document != null
+                && (xformed.getBaseURI() == null
+                    || "".equals(xformed.getBaseURI().toASCIIString()))) {
+                String sysId = document.getBaseURI().toASCIIString();
+                xformed.getUnderlyingNode().setSystemId(sysId);
+            }
+            resultPipe.write(stepContext,xformed);
+        }
+    }
+    
+    public void run10(XdmNode stylesheet, XdmNode document) {
+        try {
+            InputSource is = S9apiUtils.xdmToInputSource(runtime, stylesheet);
+            
+            TransformerFactory tfactory = TransformerFactory.newInstance();
+            Transformer transformer = tfactory.newTransformer(new SAXSource(is));
+
+            transformer.setURIResolver(runtime.getResolver());
+
+            for (QName name : params.keySet()) {
+                RuntimeValue v = params.get(name);
+                transformer.setParameter(name.getClarkName(), v.getString());
+            }
+
+            DOMResult result = new DOMResult();
+            is = S9apiUtils.xdmToInputSource(runtime, document);
+            transformer.transform(new SAXSource(is), result);
+
+            DocumentBuilder xdmBuilder = runtime.getConfiguration().getProcessor().newDocumentBuilder();
+            XdmNode xformed = xdmBuilder.build(new DOMSource(result.getNode()));
+
             // Can be null when nothing is written to the principle result tree...
-            resultPipe.write(stepContext, xformed);
+            if (xformed != null) {
+                if (document != null
+                        && (xformed.getBaseURI() == null
+                        || "".equals(xformed.getBaseURI().toASCIIString()))) {
+                    String sysId = document.getBaseURI().toASCIIString();
+                    xformed.getUnderlyingNode().setSystemId(sysId);
+                }
+                resultPipe.write(stepContext,xformed);
+            }
+        } catch (SaxonApiException sae) {
+            throw new XProcException(sae);
+        } catch (TransformerConfigurationException tce) {
+            throw new XProcException(tce);
+        } catch (TransformerException te) {
+            throw new XProcException(te);
         }
     }
 
@@ -250,7 +319,7 @@ public class XSLT extends DefaultStep {
             String href = result.getSystemId();
             XdmDestination xdmResult = secondaryResults.get(href);
             XdmNode doc = xdmResult.getXdmNode();
-            secondaryPipe.write(stepContext, doc);
+            secondaryPipe.write(stepContext,doc);
         }
     }
 
@@ -270,9 +339,7 @@ public class XSLT extends DefaultStep {
             treeWriter.endDocument();
 
             step.reportError(treeWriter.getResult());
-
-            System.err.println(content);
-            //finest(step.getNode(), "xsl:messsage (terminate=" + terminate + "): " + content);
+            step.info(step.getNode(), content.toString());
         }
     }
 }

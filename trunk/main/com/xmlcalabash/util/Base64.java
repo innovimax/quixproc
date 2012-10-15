@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -670,8 +670,7 @@ public class Base64
      * @param source The data to convert
      * @param off Offset in array where conversion should begin
      * @param len Length of data to convert
-     * @param options Specified options
-	 * @param options alphabet type is pulled from this (standard, url-safe, ordered)
+     * @param options Specified options; alphabet type is pulled from this (standard, url-safe, ordered)
      * @see Base64#GZIP
      * @see Base64#DONT_BREAK_LINES
      * @since 2.0
@@ -697,7 +696,7 @@ public class Base64
                 b64os = new Base64.OutputStream( baos, ENCODE | options );
                 gzos  = new java.util.zip.GZIPOutputStream( b64os );
 
-                gzos.write(source, off, len );
+                gzos.write( source, off, len );
                 gzos.close();
             }   // end try
             catch( java.io.IOException e )
@@ -1082,7 +1081,7 @@ public class Base64
         {
             bos = new Base64.OutputStream(
                       new java.io.FileOutputStream( filename ), Base64.ENCODE );
-            bos.write(dataToEncode );
+            bos.write( dataToEncode );
             success = true;
         }   // end try
         catch( java.io.IOException e )
@@ -1116,7 +1115,7 @@ public class Base64
         {
                 bos = new Base64.OutputStream(
                           new java.io.FileOutputStream( filename ), Base64.DECODE );
-                bos.write(dataToDecode.getBytes( PREFERRED_ENCODING ) );
+                bos.write( dataToDecode.getBytes( PREFERRED_ENCODING ) );
                 success = true;
         }   // end try
         catch( java.io.IOException e )
@@ -1262,7 +1261,7 @@ public class Base64
             byte[] buffer = new byte[65536]; // 64K
             int read = -1;
             while( ( read = in.read(buffer) ) >= 0 ){
-                out.write(buffer,0,read );
+                out.write( buffer,0,read );
             }   // end while: through file
             success = true;
         } catch( java.io.IOException exc ){
@@ -1299,7 +1298,7 @@ public class Base64
             byte[] buffer = new byte[65536]; // 64K
             int read = -1;
             while( ( read = in.read(buffer) ) >= 0 ){
-                out.write(buffer,0,read );
+                out.write( buffer,0,read );
             }   // end while: through file
             success = true;
         } catch( java.io.IOException exc ){
@@ -1641,7 +1640,7 @@ public class Base64
             // Encoding suspended?
             if( suspendEncoding )
             {
-                super.out.write(theByte );
+                super.out.write( theByte );
                 return;
             }   // end if: supsended
 
@@ -1651,12 +1650,12 @@ public class Base64
                 buffer[ position++ ] = (byte)theByte;
                 if( position >= bufferLength )  // Enough to encode.
                 {
-                    out.write(encode3to4( b4, buffer, bufferLength, options ) );
+                    out.write( encode3to4( b4, buffer, bufferLength, options ) );
 
                     lineLength += 4;
                     if( breakLines && lineLength >= MAX_LINE_LENGTH )
                     {
-                        out.write(NEW_LINE );
+                        out.write( NEW_LINE );
                         lineLength = 0;
                     }   // end if: end of line
 
@@ -1674,8 +1673,8 @@ public class Base64
                     if( position >= bufferLength )  // Enough to output.
                     {
                         int len = Base64.decode4to3( buffer, 0, b4, 0, options );
-                        out.write(b4, 0, len );
-                        //out.write(Base64.decode4to3( buffer ) );
+                        out.write( b4, 0, len );
+                        //out.write( Base64.decode4to3( buffer ) );
                         position = 0;
                     }   // end if: enough to output
                 }   // end if: meaningful base64 character
@@ -1702,7 +1701,7 @@ public class Base64
             // Encoding suspended?
             if( suspendEncoding )
             {
-                super.out.write(theBytes, off, len );
+                super.out.write( theBytes, off, len );
                 return;
             }   // end if: supsended
 
@@ -1725,7 +1724,7 @@ public class Base64
             {
                 if( encode )
                 {
-                    out.write(encode3to4( b4, buffer, position, options ) );
+                    out.write( encode3to4( b4, buffer, position, options ) );
                     position = 0;
                 }   // end if: encoding
                 else

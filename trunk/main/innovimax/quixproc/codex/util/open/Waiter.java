@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -44,5 +44,7 @@ public class Waiter implements Waiting {
     public void check(boolean exit) { /* NOP */ }
     public void check(String info) { /* NOP */ }
     public void check(String info, boolean exit) { /* NOP */ }
+    public void reset() { /* NOP */ }
+    public void kill() { /* NOP */ }
           
 }

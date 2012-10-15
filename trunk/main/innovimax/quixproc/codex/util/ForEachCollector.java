@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -72,8 +72,6 @@ public class ForEachCollector implements Runnable {
                while (reader.hasEvent()) {                              
                    if (docStarted || !forStep.selectionPaused()) {
                        processEvent(reader.nextEvent(), reader.pipe());
-                   } else {
-                       //System.err.println(">>> SELECTION PAUSED");
                    }
                    Thread.yield();
                }   
@@ -141,11 +139,13 @@ public class ForEachCollector implements Runnable {
                     wContext.curChannel = wChannel;
                     wContext.altChannel = wChannel;
                     document = out.newPipedDocument(wChannel);
+                    document.append(QuixEvent.getStartSequence());
                     document.append(event);                     
                     break;
                 case END_DOCUMENT :
                     runtime.getTracer().debug(forStep,null,-1,in,null,"    COLLECT-SELECT > END DOCUMENT");   
                     document.append(event);    
+                    document.append(QuixEvent.getEndSequence());
                     document.close();                     
                     out.close(wContext);       
                     docStarted = false;

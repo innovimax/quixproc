@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,40 +22,49 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 package com.xmlcalabash.io;
 
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.SaxonApiException;
-import com.xmlcalabash.model.Step;
-
 import innovimax.quixproc.codex.util.PipedDocument;
 import innovimax.quixproc.codex.util.StepContext;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XdmNode;
 
-public interface ReadablePipe {
+import com.xmlcalabash.model.Step;
+// Innovimax: new import
+// Innovimax: new import
+
+/**
+ *
+ * @author ndw
+ */
+public interface ReadablePipe {  
     public void canReadSequence(boolean sequence);    
-    public DocumentSequence documents();
-                
+    public boolean readSequence();    
+    
     //*************************************************************************
     // INNOVIMAX IMPLEMENTATION
     //*************************************************************************         
     
-    public void initialize(StepContext stepContext);
+    public void initialize(StepContext stepContext);    
     public void resetReader(StepContext stepContext);            
     public Step getReader(StepContext stepContext);         
     public void setReader(StepContext stepContext, Step step);                  
     public boolean closed(StepContext stepContext);       
     public boolean moreDocuments(StepContext stepContext);     
-    public int documentCount(StepContext stepContext);        
+    public int documentCount(StepContext stepContext);
+    public DocumentSequence documents(StepContext stepContext);                
     public XdmNode read(StepContext stepContext) throws SaxonApiException;        
-    public PipedDocument readAsStream(StepContext stepContext);          
+    public PipedDocument readAsStream(StepContext stepContext);      
+    public String sequenceInfos();            
     
     //*************************************************************************
     // INNOVIMAX DEPRECATION
     //*************************************************************************       
-/*
-    public void resetReader();
+/*            
     public XdmNode read() throws SaxonApiException;
     public void setReader(Step step);
+    public void resetReader();
     public boolean moreDocuments();
+    public DocumentSequence documents();            
     public boolean closed();
     public int documentCount();
-*/
+*/  
 }

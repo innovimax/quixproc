@@ -1,7 +1,7 @@
 /*
 QuiXProc: efficient evaluation of XProc Pipelines.
-Copyright (C) 2011 Innovimax
-2008-2011 Mark Logic Corporation.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
 Portions Copyright 2007 Sun Microsystems, Inc.
 All rights reserved.
 
@@ -22,8 +22,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 package innovimax.quixproc.codex.util;
 
 import innovimax.quixproc.codex.io.AggregatePipe;
-import innovimax.quixproc.datamodel.QuixEvent;
 import innovimax.quixproc.datamodel.IStream;
+import innovimax.quixproc.datamodel.QuixEvent;
 import innovimax.quixproc.datamodel.QuixException;
 import innovimax.quixproc.util.SpyHandler;
 
