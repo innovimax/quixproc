@@ -1,0 +1,323 @@
+/*
+QuiXProc: efficient evaluation of XProc Pipelines.
+Copyright (C) 2011-2012 Innovimax
+2008-2012 Mark Logic Corporation.
+Portions Copyright 2007 Sun Microsystems, Inc.
+All rights reserved.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 3
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+*/
+package com.xmlcalabash.extensions;
+
+import java.awt.Image;
+import java.awt.Toolkit;
+import java.awt.image.ImageObserver;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URL;
+import java.net.URLConnection;
+import java.util.Iterator;
+import java.util.StringTokenizer;
+
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+
+import com.drew.imaging.jpeg.JpegMetadataReader;
+import com.drew.imaging.jpeg.JpegProcessingException;
+import com.drew.metadata.Directory;
+import com.drew.metadata.Metadata;
+import com.drew.metadata.MetadataException;
+import com.drew.metadata.Tag;
+import com.xmlcalabash.core.XProcConstants;
+import com.xmlcalabash.core.XProcException;
+import com.xmlcalabash.core.XProcRuntime;
+import com.xmlcalabash.io.WritablePipe;
+import com.xmlcalabash.library.DefaultStep;
+import com.xmlcalabash.runtime.XAtomicStep;
+import com.xmlcalabash.util.TreeWriter;
+
+/**
+ * Created by IntelliJ IDEA.
+ * User: ndw
+ * Date: Oct 8, 2008
+ * Time: 7:44:07 AM
+ * To change this template use File | Settings | File Templates.
+ */
+
+public class MetadataExtractor extends DefaultStep {
+    private static final QName _href = new QName("","href");
+    private final static QName c_metadata = new QName("c", XProcConstants.NS_XPROC_STEP, "metadata");
+    private final static QName c_tag = new QName("c", XProcConstants.NS_XPROC_STEP, "tag");
+    private final static QName _dir = new QName("", "dir");
+    private final static QName _type = new QName("", "type");
+    private final static QName _name = new QName("", "name");
+    private final static QName _error = new QName("", "error");
+
+    private WritablePipe result = null;
+
+    /**
+     * Creates a new instance of Identity
+     */
+    public MetadataExtractor(XProcRuntime runtime, XAtomicStep step) {
+        super(runtime,step);
+    }
+
+    public void setOutput(String port, WritablePipe pipe) {
+        result = pipe;
+    }
+
+    public void reset() {
+        result.resetWriter(stepContext);
+    }
+
+    public void gorun() throws SaxonApiException {
+        super.gorun();
+
+        URI href = getOption(_href).getBaseURI().resolve(getOption(_href).getString());
+
+        try {
+            URL url = href.toURL();
+            URLConnection connection = url.openConnection();
+            InputStream stream = connection.getInputStream();
+            Metadata metadata = JpegMetadataReader.readMetadata(stream);
+
+            TreeWriter tree = new TreeWriter(runtime);
+            tree.startDocument(step.getNode().getBaseURI());
+            tree.addStartElement(c_metadata);
+            tree.addAttribute(_href, href.toASCIIString());
+            tree.startContent();
+
+            // iterate through metadata directories
+            Iterator directories = metadata.getDirectoryIterator();
+            while (directories.hasNext()) {
+                Directory directory = (Directory) directories.next();
+                String dir = directory.getName();
+                Iterator tags = directory.getTagIterator();
+                while (tags.hasNext()) {
+                    Tag tag = (Tag) tags.next();
+
+                    tree.addStartElement(c_tag);
+                    tree.addAttribute(_dir, dir);
+                    tree.addAttribute(_type, tag.getTagTypeHex());
+                    tree.addAttribute(_name, tag.getTagName());
+
+                    String value = "";
+                    try {
+                        value = tag.getDescription();
+                    } catch (MetadataException me) {
+                        tree.addAttribute(_error, me.toString());
+                    }
+
+                    // Bah humbug...I don't see an easy way to tell if ti's a date/time
+                    if (value.matches("^\\d\\d\\d\\d:\\d\\d:\\d\\d \\d\\d:\\d\\d:\\d\\d$")) {
+                        String iso = value.substring(0, 4) + "-" + value.substring(5, 7) + "-" + value.substring(8, 10)
+                                + "T" + value.substring(11,19);
+                        value = iso;
+                    }
+
+                    tree.startContent();
+                    tree.addText(value);
+                    tree.addEndElement();
+                }
+            }
+
+            tree.addEndElement();
+            tree.endDocument();
+            result.write(stepContext,tree.getResult());
+        } catch (IOException ioe) {
+            throw new XProcException(ioe);
+        } catch (JpegProcessingException e) {
+            // Not a JPEG? Let's try to do at least the intrinsics...
+            runIntrinsics(href);
+        }
+    }
+    
+    private void runIntrinsics(URI href) throws SaxonApiException {
+        ImageIntrinsics intrinsics = new ImageIntrinsics();
+        intrinsics.run(href.toASCIIString());
+    }
+
+    private class ImageIntrinsics implements ImageObserver {
+        boolean imageLoaded = false;
+        boolean imageFailed = false;
+        Image image = null;
+        int width = -1;
+        int depth = -1;
+
+        public void run(String imageFn) {
+            imageLoaded = false;
+            imageFailed = false;
+            image = null;
+            width = -1;
+            depth = -1;
+
+            System.setProperty("java.awt.headless","true");
+
+            try {
+                URL url = new URL(imageFn);
+                image = Toolkit.getDefaultToolkit().getImage (url);
+            } catch (MalformedURLException mue) {
+                image = Toolkit.getDefaultToolkit().getImage (imageFn);
+            }
+
+            width = image.getWidth(this);
+            depth = image.getHeight(this);
+
+            while (!imageFailed && (width == -1 || depth == -1)) {
+                try {
+                    java.lang.Thread.currentThread().sleep(50);
+                } catch (Exception e) {
+                    // nop;
+                }
+                width = image.getWidth(this);
+                depth = image.getHeight(this);
+            }
+
+            image.flush();
+
+            if ((width == -1 || depth == -1) && imageFailed) {
+                // Maybe it's an EPS or PDF?
+                // FIXME: this code is crude
+                BufferedReader ir = null;
+                String line = null;
+                int lineLimit = 100;
+
+                try {
+                    ir = new BufferedReader(new FileReader(new File(imageFn)));
+                    line = ir.readLine();
+
+                    if (line != null && line.startsWith("%PDF-")) {
+                        // We've got a PDF!
+                        while (lineLimit > 0 && line != null) {
+                            lineLimit--;
+                            if (line.startsWith("/CropBox [")) {
+                                line = line.substring(10);
+                                if (line.indexOf("]") >= 0) {
+                                    line = line.substring(0, line.indexOf("]"));
+                                }
+                                parseBox(line);
+                                lineLimit = 0;
+                            }
+                            line = ir.readLine();
+                        }
+                    } else if (line != null
+                            && line.startsWith("%!")
+                            && line.indexOf(" EPSF-") > 0) {
+                        // We've got an EPS!
+                        while (lineLimit > 0 && line != null) {
+                            lineLimit--;
+                            if (line.startsWith("%%BoundingBox: ")) {
+                                line = line.substring(15);
+                                parseBox(line);
+                                lineLimit = 0;
+                            }
+                            line = ir.readLine();
+                        }
+                    } else {
+                        System.err.println("Failed to interpret image: " + imageFn);
+                    }
+                } catch (Exception e) {
+                    System.err.println("Failed to load image: " + imageFn);
+                    // nop;
+                }
+
+                if (ir != null) {
+                    try {
+                        ir.close();
+                    } catch (Exception e) {
+                        // nop;
+                    }
+                }
+            }
+
+            if (width >= 0) {
+                TreeWriter tree = new TreeWriter(runtime);
+                tree.startDocument(step.getNode().getBaseURI());
+                tree.addStartElement(c_metadata);
+                tree.addAttribute(_href, imageFn);
+                tree.startContent();
+
+                tree.addStartElement(c_tag);
+                tree.addAttribute(_dir, "Exif");
+                tree.addAttribute(_type, "0x9000");
+                tree.addAttribute(_name, "Exif Version");
+                tree.startContent();
+                tree.addText("0");
+                tree.addEndElement();
+
+                tree.addStartElement(c_tag);
+                tree.addAttribute(_dir, "Jpeg");
+                tree.addAttribute(_type, "0x0001");
+                tree.addAttribute(_name, "Image Height");
+                tree.startContent();
+                tree.addText(""+depth+" pixels");
+                tree.addEndElement();
+
+                tree.addStartElement(c_tag);
+                tree.addAttribute(_dir, "Jpeg");
+                tree.addAttribute(_type, "0x0003");
+                tree.addAttribute(_name, "Image Width");
+                tree.startContent();
+                tree.addText(""+width+" pixels");
+                tree.addEndElement();
+
+                tree.endDocument();
+                result.write(stepContext,tree.getResult());
+            } else {
+                throw new XProcException("Failed to read image intrinsics");
+            }
+        }
+
+        private void parseBox(String line) {
+            int [] corners = new int [4];
+            int count = 0;
+
+            StringTokenizer st = new StringTokenizer(line);
+            while (count < 4 && st.hasMoreTokens()) {
+                try {
+                    corners[count++] = Integer.parseInt(st.nextToken());
+                } catch (Exception e) {
+                    // nop;
+                }
+            }
+
+            width = corners[2] - corners[0];
+            depth = corners[3] - corners[1];
+        }
+
+        public boolean imageUpdate(Image img, int infoflags,
+                                   int x, int y, int width, int height) {
+            if (((infoflags & ImageObserver.ERROR) == ImageObserver.ERROR)
+                    || ((infoflags & ImageObserver.ABORT) == ImageObserver.ABORT)) {
+                imageFailed = true;
+                return false;
+            }
+
+            // I really only care about the width and height, but if I return false as
+            // soon as those are available, the BufferedInputStream behind the loader
+            // gets closed too early.
+            if ((infoflags & ImageObserver.ALLBITS) == ImageObserver.ALLBITS) {
+                return false;
+            } else {
+                return true;
+            }
+        }
+    }
+}

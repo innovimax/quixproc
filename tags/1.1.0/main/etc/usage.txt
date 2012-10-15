@@ -1,0 +1,27 @@
+Usage: com.xmlcalabash.drivers.Main [switches] [pipeline.xpl] [options]
+   or: com.xmlcalabash.drivers.Main [switches] \
+           { [inputs/outputs/parameters] step [options] }+
+
+Where switches are:
+  -a, --schema-aware                   Turn on schema-aware processing
+  -b, --binding prefix=uri  	       Specify namespace binding
+  -c, --config configfile              Specify a particular configuration file
+  -d, --data-input port=uri            Bind the specified input port to data
+  -D, --debug               	       Turn on debugging
+  -E, --entity-resolver className      Specify a resolver class for URI resolution
+  -G, --log-style logstyle             Specify the default style for p:log output
+  -i, --input port=uri      	       Bind the specified input port
+  -l, --library library.xpl            Load the specified library
+  -o, --output port=uri                Bind the specified output port
+  -p, --with-param [port@]param=value  Specify a parameter
+  -P, --saxon-processor edition        Request a specific edition of Saxon
+  -s, --step-name stepname             Run the step named 'stepname'
+  -S, --safe-mode                      Request "safe" execution
+  -U, --uri-resolver className         Specify a resolver class for URI resolution
+  -v, --version                        Show XML Calabash version
+  -X, --extension extname              Enable the 'extname' extension
+      --saxon-configuration file       Load the specified Saxon configuration
+
+For more information, consult http://xmlcalabash.com/docs/reference/ or
+the documentation that came with the distribution.
+
