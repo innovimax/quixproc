@@ -45,6 +45,12 @@ public class QuiXPathImpl implements IEQuiXPath {
   }
  
   @Override
+  public IQuiXPathExpression compile(String xpathQuery, IStaticContext context) throws UnsupportedQueryException {
+
+    return this.proxy.compile(xpathQuery, context, true);
+  }
+
+  @Override
   public IStream<MatchEvent> update(IQuiXPathExpression expression, QuixEvent event) throws QuiXPathException {
     return this.proxy.update(expression, event);
   }
